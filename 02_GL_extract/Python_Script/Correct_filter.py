@@ -92,54 +92,142 @@ def slope_correction(collection, elevation, model, buffer=0):
 
         return layover.addBands(shadow).addBands(no_data_mask)
 
-    def _correct(image):
-        '''This function applies the slope correction and adds layover and shadow masks
+#-----------------------------------------------地形校正-----------------------------------------
+def slope_correction(collection, elevation, model, buffer=0):
+    '''This function applies the slope correction on a collection of Sentinel-1 data
+       
+       :param collection: ee.Collection or ee.Image of Sentinel-1
+       :param elevation: ee.Image of DEM
+       :param model: model to be applied (volume/surface)
+       :param buffer: buffer in meters for layover/shadow amsk
         
+       :returns: ee.Image
+    '''
+    def _volumetric_model_SCF(theta_iRad, alpha_rRad):
+        '''Code for calculation of volumetric model SCF
+            体积模型
+        :param theta_iRad: ee.Image of incidence angle in radians
+        :param alpha_rRad: ee.Image of slope steepness in range
+        
+        :returns: ee.Image
+        '''
+
+        # create a 90 degree image in radians
+        ninetyRad = ee.Image.constant(90).multiply(np.pi / 180)
+
+        # model
+        nominator = (ninetyRad.subtract(theta_iRad).add(alpha_rRad)).tan()
+        denominator = (ninetyRad.subtract(theta_iRad)).tan()
+        return nominator.divide(denominator)
+
+    def _surface_model_SCF(theta_iRad, alpha_rRad, alpha_azRad):
+        '''Code for calculation of direct model SCF
+            表面模型
+        :param theta_iRad: ee.Image of incidence angle in radians
+        :param alpha_rRad: ee.Image of slope steepness in range
+        :param alpha_azRad: ee.Image of slope steepness in azimuth
+        
+        :returns: ee.Image
+        '''
+
+        # create a 90 degree image in radians
+        ninetyRad = ee.Image.constant(90).multiply(np.pi / 180)
+
+        # model
+        nominator = (ninetyRad.subtract(theta_iRad)).cos()
+        denominator = (alpha_azRad.cos().multiply(
+            (ninetyRad.subtract(theta_iRad).add(alpha_rRad)).cos()))
+
+        return nominator.divide(denominator)
+
+    def _erode(image, distance):
+        '''Buffer function for raster
+            腐蚀算法，输入的图像需要额外的缓冲
+        :param image: ee.Image that shoudl be buffered
+        :param distance: distance of buffer in meters
+
+        :returns: ee.Image
+        '''
+
+        d = (image.Not().unmask(1).fastDistanceTransform(30).sqrt().multiply(
+            ee.Image.pixelArea().sqrt()))
+
+        return image.updateMask(d.gt(distance))
+
+    def _masking(alpha_rRad, theta_iRad, buffer):
+        '''Masking of layover and shadow
+            获取几何畸变区域
+        :param alpha_rRad: ee.Image of slope steepness in range
+        :param theta_iRad: ee.Image of incidence angle in radians
+        :param buffer: buffer in meters
+        
+        :returns: ee.Image
+        '''
+        # layover, where slope > radar viewing angle
+        layover = alpha_rRad.lt(theta_iRad).rename('layover')
+
+        # shadow
+        ninetyRad = ee.Image.constant(90).multiply(np.pi / 180)
+        shadow = alpha_rRad.gt(
+            ee.Image.constant(-1).multiply(
+                ninetyRad.subtract(theta_iRad))).rename('shadow')
+
+        # add buffer to layover and shadow
+        if buffer > 0:
+            layover = _erode(layover, buffer)
+            shadow = _erode(shadow, buffer)
+
+        # combine layover and shadow
+        no_data_mask = layover.And(shadow).rename('no_data_mask')
+
+        return layover.addBands(shadow).addBands(no_data_mask)
+
+    def _correct(image):
+        '''
+        This function applies the slope correction and adds layover and shadow masks
         '''
 
         # get the image geometry and projection
         geom = image.geometry()
         proj = image.select(1).projection()
 
-        # calculate the look direction
+        # 计算雷达方位向，ee.Terrain.aspect()本是用来计算坡度，该函数返回每个像素点相对于正北方向的坡度角度值
         heading = (ee.Terrain.aspect(image.select('angle')).reduceRegion(
             ee.Reducer.mean(), geom, 1000).get('aspect'))
 
-        # Sigma0 to Power of input image，Sigma0是指雷达回波信号的强度
+        # Sigma0 to Power of input image，Sigma0是指雷达回波信号的强度,dB转信号强度
         sigma0Pow = ee.Image.constant(10).pow(image.divide(10.0))
 
         # the numbering follows the article chapters
         # 2.1.1 Radar geometry
-        theta_iRad = image.select('angle').multiply(np.pi / 180)
-        phi_iRad = ee.Image.constant(heading).multiply(np.pi / 180)
+        theta_iRad = image.select('angle').multiply(np.pi / 180)  #地面入射角度转为弧度
+        phi_iRad = ee.Image.constant(heading).multiply(np.pi / 180) #方位角转弧度
 
         # 2.1.2 Terrain geometry
         alpha_sRad = ee.Terrain.slope(elevation).select('slope').multiply(
-            np.pi / 180).setDefaultProjection(proj).clip(geom)
+            np.pi / 180).setDefaultProjection(proj).clip(geom)          # 坡度(与地面夹角)
         phi_sRad = ee.Terrain.aspect(elevation).select('aspect').multiply(
-            np.pi / 180).setDefaultProjection(proj).clip(geom)
+            np.pi / 180).setDefaultProjection(proj).clip(geom)          # 坡向角，(坡度陡峭度)坡与正北方向夹角(陡峭度)，从正北方向起算，顺时针计算角度
 
         # we get the height, for export
         height = elevation.setDefaultProjection(proj).clip(geom)
 
         # 2.1.3 Model geometry
         #reduce to 3 angle
-        phi_rRad = phi_iRad.subtract(phi_sRad)
+        phi_rRad = phi_iRad.subtract(phi_sRad)     # (飞行方向角度-坡度陡峭度)飞行方向与坡向之间的夹角
 
-        # slope steepness in range (eq. 2)
-        alpha_rRad = (alpha_sRad.tan().multiply(phi_rRad.cos())).atan()
-
-        # slope steepness in azimuth (eq 3)
-        alpha_azRad = (alpha_sRad.tan().multiply(phi_rRad.sin())).atan()
+        # 分解坡度，从一维分解为二维，
+        alpha_rRad = (alpha_sRad.tan().multiply(phi_rRad.cos())).atan()     # 距离向分解
+        alpha_azRad = (alpha_sRad.tan().multiply(phi_rRad.sin())).atan()    # 方位向分解
 
         # local incidence angle (eq. 4)
         theta_liaRad = (alpha_azRad.cos().multiply(
-            (theta_iRad.subtract(alpha_rRad)).cos())).acos()
-        theta_liaDeg = theta_liaRad.multiply(180 / np.pi)
+            (theta_iRad.subtract(alpha_rRad)).cos())).acos()               # LIA
+        theta_liaDeg = theta_liaRad.multiply(180 / np.pi)                  # LIA转弧度
 
-        # 2.2
+        # 2.2，根据入射角辐射校正
         # Gamma_nought
-        gamma0 = sigma0Pow.divide(theta_iRad.cos())
+        gamma0 = sigma0Pow.divide(theta_iRad.cos())                        # 将原有反射信号通过入射角度进行削弱或增强
         gamma0dB = ee.Image.constant(10).multiply(gamma0.log10()).select(
             ['VV', 'VH'], ['VV_gamma0', 'VH_gamma0'])
         ratio_gamma = (gamma0dB.select('VV_gamma0').subtract(
@@ -154,9 +242,7 @@ def slope_correction(collection, elevation, model, buffer=0):
         # apply model for Gamm0_f
         gamma0_flat = gamma0.divide(scf)
         gamma0_flatDB = (ee.Image.constant(10).multiply(
-            gamma0_flat.log10()).select(['VV', 'VH'],
-                                        ['VV_gamma0flat', 'VH_gamma0flat']))
-
+            gamma0_flat.log10()).select(['VV', 'VH'],['VV_gamma0flat', 'VH_gamma0flat']))
         masks = _masking(alpha_rRad, theta_iRad, buffer)
 
         # calculate the ratio for RGB vis
@@ -183,7 +269,6 @@ def slope_correction(collection, elevation, model, buffer=0):
         return _correct(collection)
     else:
         print('Check input type, only image collection or image can be input')
-
 
 #-----------------------------------------------图像滤波-----------------------------------------
 def boxcar(KERNEL_SIZE):

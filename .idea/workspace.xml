@@ -1,11 +1,74 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
-    <list default="true" id="1646d052-6994-464e-8097-4d3c80871019" name="Changes" comment="" />
+    <list default="true" id="1646d052-6994-464e-8097-4d3c80871019" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/GEE_Script.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/GEE_Script.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.virtual_documents/geemap-master/examples/notebooks/00_geemap_key_features.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/.virtual_documents/geemap-master/examples/notebooks/00_geemap_key_features.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.virtual_documents/geemap-master/examples/notebooks/01_geemap_intro.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/.virtual_documents/geemap-master/examples/notebooks/01_geemap_intro.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.virtual_documents/geemap-master/examples/notebooks/30_image_props_stats.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/.virtual_documents/geemap-master/examples/notebooks/30_image_props_stats.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_15.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_15.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_16.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_16.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_17.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_17.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_18.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_18.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_19.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_19.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_20.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_20.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_21.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_21.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_22.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_22.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_ALL.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L1C_TOA/S2_L1C_TOA_ALL.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L2A_SR/S2_L2A_SR_17.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L2A_SR/S2_L2A_SR_17.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L2A_SR/S2_L2A_SR_18.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L2A_SR/S2_L2A_SR_18.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L2A_SR/S2_L2A_SR_19.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L2A_SR/S2_L2A_SR_19.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L2A_SR/S2_L2A_SR_20.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L2A_SR/S2_L2A_SR_20.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L2A_SR/S2_L2A_SR_21.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L2A_SR/S2_L2A_SR_21.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L2A_SR/S2_L2A_SR_22.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L2A_SR/S2_L2A_SR_22.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L2A_SR/S2_L2A_SR_ALL.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Cloud Statistics/S2_L2A_SR/S2_L2A_SR_ALL.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Dataset_download_wash/ClearSAR.py" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Dataset_download_wash/ClearSAR.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Dataset_download_wash/GEE_S1S2_Norm.py" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Dataset_download_wash/GEE_S1S2_Norm.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Dataset_download_wash/S2_S1_DateEx.py" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Dataset_download_wash/S2_S1_DateEx.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Dataset_download_wash/使用S2cloudless制作数据集-云端.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Dataset_download_wash/使用S2cloudless制作数据集-云端.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Landsat/L01MSS_C2T1L2_SR.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Landsat/L01MSS_C2T1L2_SR.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Landsat/L02MSS_C2T1L2_SR.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Landsat/L02MSS_C2T1L2_SR.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Landsat/L03MSS_C2T1L2_SR.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Landsat/L03MSS_C2T1L2_SR.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Landsat/L04MSS_C2T1L2_SR.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Landsat/L04MSS_C2T1L2_SR.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Landsat/L04_C2T1L2_SR.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Landsat/L04_C2T1L2_SR.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Landsat/L05MSS_C2T1L2_SR.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Landsat/L05MSS_C2T1L2_SR.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Landsat/L05_C2T1L2_SR.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Landsat/L05_C2T1L2_SR.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Landsat/L07_C2T1L2_SR.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Landsat/L07_C2T1L2_SR.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Landsat/L08_C2T1L2_SR.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Landsat/L08_C2T1L2_SR.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Landsat/L08_C2T1_TOA.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Landsat/L08_C2T1_TOA.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_cloud_removal/Landsat/L09_C2T1L2_SR.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_cloud_removal/Landsat/L09_C2T1L2_SR.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/02_GL_extract/Python_Script/Correct_filter.py" beforeDir="false" afterPath="$PROJECT_DIR$/02_GL_extract/Python_Script/Correct_filter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/02_GL_extract/Untitled.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/02_GL_extract/Untitled.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/geemap-master/docs/colormaps.md" beforeDir="false" afterPath="$PROJECT_DIR$/geemap-master/docs/colormaps.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/geemap-master/docs/conf.py" beforeDir="false" afterPath="$PROJECT_DIR$/geemap-master/docs/conf.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/geemap-master/examples/data/rf_example.csv" beforeDir="false" afterPath="$PROJECT_DIR$/geemap-master/examples/data/rf_example.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/geemap-master/examples/data/rwc_batch_input.csv" beforeDir="false" afterPath="$PROJECT_DIR$/geemap-master/examples/data/rwc_batch_input.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/geemap-master/geemap/data/template/ee_api_docs.csv" beforeDir="false" afterPath="$PROJECT_DIR$/geemap-master/geemap/data/template/ee_api_docs.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/geemap-master/geemap/geemap.py" beforeDir="false" afterPath="$PROJECT_DIR$/geemap-master/geemap/geemap.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FlaskConsoleOptions" custom-start-script="import sys&#10;sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;from flask.cli import ScriptInfo&#10;locals().update(ScriptInfo(create_app=None).load_app().make_shell_context())&#10;print(&quot;Python %s on %s\nApp: %s [%s]\nInstance: %s&quot; % (sys.version, sys.platform, app.import_name, app.env, app.instance_path))">
+    <envs>
+      <env key="FLASK_APP" value="app" />
+    </envs>
+    <option name="myCustomStartScript" value="import sys&#10;sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;from flask.cli import ScriptInfo&#10;locals().update(ScriptInfo(create_app=None).load_app().make_shell_context())&#10;print(&quot;Python %s on %s\nApp: %s [%s]\nInstance: %s&quot; % (sys.version, sys.platform, app.import_name, app.env, app.instance_path))" />
+    <option name="myEnvs">
+      <map>
+        <entry key="FLASK_APP" value="app" />
+      </map>
+    </option>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -23,7 +86,11 @@
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "WebServerToolWindowFactoryState": "false",
-    "last_opened_file_path": "D:/Wrz/anaconda/envs/GEE/_conda.exe",
+    "last_opened_file_path": "D:/Wrz/SpA-GAN_for_cloud_removal-master",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
     "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
     "vue.rearranger.settings.migration": "true"
   }
@@ -36,8 +103,29 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1687872421063</updated>
-      <workItem from="1687872423196" duration="189000" />
+      <workItem from="1687872423196" duration="7200000" />
+      <workItem from="1688300611673" duration="399000" />
+      <workItem from="1688688896392" duration="184000" />
     </task>
     <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="jupyter-line">
+          <url>notebook://D:/09_Code/GEE_Script/02_GL_extract/Untitled.ipynb</url>
+          <line>253</line>
+          <option name="timeStamp" value="3" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="jupyter-line">
+          <url>notebook://D:/09_Code/GEE_Script/02_GL_extract/Untitled.ipynb</url>
+          <line>336</line>
+          <option name="timeStamp" value="4" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>
