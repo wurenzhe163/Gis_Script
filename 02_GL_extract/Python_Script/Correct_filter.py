@@ -191,7 +191,7 @@ def slope_correction(collection, elevation, model, buffer=0):
         geom = image.geometry()
         proj = image.select(1).projection()
 
-        # 计算雷达方位向，ee.Terrain.aspect()本是用来计算坡度，该函数返回每个像素点相对于正北方向的坡度角度值
+        # 计算雷达方位向，ee.Terrain.aspect()本是用来计算坡向，返回一个代表每个像元坡度方向的图像
         heading = (ee.Terrain.aspect(image.select('angle')).reduceRegion(
             ee.Reducer.mean(), geom, 1000).get('aspect'))
 
