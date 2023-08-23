@@ -2,6 +2,7 @@ import os
 import geemap
 from Correct_filter import *
 import copy
+from tqdm import tqdm, trange
 
 def make_dir(path):
     isExists = os.path.exists(path)
@@ -58,7 +59,7 @@ def image2vector(result,resultband=0,radius=10,GLarea=1.,scale=10,FilterBound=No
 
 def clip_AOI(col, AOI): return col.clip(AOI)
 
-def cut_geometry(geometry,block_size:float=0.05):
+def cut_geometryGEE(geometry,block_size:float=0.05):
   '''
   block_size 定义方块大小(地理坐标系度),0.01约等于1km
   '''
@@ -83,10 +84,34 @@ def cut_geometry(geometry,block_size:float=0.05):
 
   # 生成方块列表
   block_list = []
-  for row in range(num_rows):
-      for col in range(num_cols):
+  for row in trange(num_rows):
+      for col in trange(num_cols):
           block = create_blocks(ee.Number(row), ee.Number(col))
           block_list.append(block)
+  return block_list
+
+def cut_geometry(geometry,block_size:float=0.05):
+  block_size = 0.05
+  bounds = geometry.bounds().coordinates().getInfo()[0]
+
+  width = bounds[2][0] - bounds[0][0]
+  height = bounds[2][1] - bounds[0][1]
+  num_rows = math.ceil(height / block_size)
+  num_cols = math.ceil(width / block_size)
+
+  def create_blocks(row, col):
+    x_min = bounds[0][0]+ col * block_size
+    y_min = bounds[0][1]+ row * block_size
+    x_max = x_min + block_size
+    y_max = y_min + block_size
+    return ee.Geometry.Rectangle([x_min, y_min, x_max, y_max])
+
+  # 生成方块列表
+  block_list = []
+  for row in trange(num_rows):
+    for col in trange(num_cols):
+      block = create_blocks(row, col)
+      block_list.append(block)
   return block_list
 
 def time_difference(col, middle_date):
@@ -132,6 +157,7 @@ def load_image_collection(aoi, start_date, end_date, middle_date,
               .filterBounds(aoi)
               .filterDate(start_date, end_date))
   s1_col_copy = copy.deepcopy(s1_col)
+
   # 图像滤波，可选
   if Filter:
       print('Begin Filter ...')

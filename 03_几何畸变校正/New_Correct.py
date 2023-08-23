@@ -3,8 +3,10 @@ import math
 import numpy as np
 from scipy.signal import argrelextrema
 from tqdm import tqdm
+import sys
 
 
+EasyIndex = lambda Data, Index, *Keys: [Data[key][Index] for key in Keys]
 # 根据图像计算方位角，并
 def getASCCorners(image, AOI_buffer, orbitProperties_pass):
     # 真实方位角
@@ -85,6 +87,32 @@ def angle2slope(angle):
         slop = -math.tan(arc)
     return slop
 
+def AuxiliaryLine2Point(cal_image, s1_azimuth_across,coordinates_dict, Auxiliarylines, scale):
+
+    # 计算斜率
+    K = angle2slope(s1_azimuth_across)
+
+    # 过Auxiliarylines中的点，从最小经度到最大经度
+    Max_Lon = coordinates_dict['maxLon'].getInfo()
+    Min_Lon = coordinates_dict['minLon'].getInfo()
+
+    AuxiliaryPoints = reduce_tolist(cal_image.select(['longitude', 'latitude']).clip(Auxiliarylines),
+                                    scale=scale).getInfo()
+    # 获取辅助线上的所有点数据
+    Aux_lon = np.array(AuxiliaryPoints['longitude'])
+    Aux_lon, indices_Aux_lon = np.unique(Aux_lon, return_index=True)
+    Aux_lat = np.array(AuxiliaryPoints['latitude'])[indices_Aux_lon]
+
+    Templist = []
+    for X, Y in zip(Aux_lon, Aux_lat):
+        C = Y - K * X
+        Min_Lon_Y = K * Min_Lon + C
+        Max_lon_Y = K * Max_Lon + C
+        Templist.append(ee.Feature(ee.Geometry.LineString(
+            [Min_Lon, Min_Lon_Y, Max_Lon, Max_lon_Y])))
+    return Templist
+
+
 # 将图像像素数量与经纬度等匹配
 def Eq_pixels(x): return ee.Image.constant(0).where(x, x).updateMask(x.mask())
 
@@ -95,7 +123,7 @@ def reduce_tolist(each, scale): return ee.Image(each).reduceRegion(
 
 
 # 普通几何畸变校正
-def cal_LIA(image, DEM, AOI_buffer, orbitProperties_pass, scale=30):
+def cal_LIA(image, DEM, AOI_buffer, orbitProperties_pass):
     elevation = DEM
     geom = image.geometry()
     proj = image.select(1).projection()
@@ -127,10 +155,10 @@ def cal_LIA(image, DEM, AOI_buffer, orbitProperties_pass, scale=30):
         (theta_iRad.subtract(alpha_rRad)).cos())).acos()  # LIA
     # theta_liaDeg = theta_liaRad.multiply(180 / np.pi)  # LIA转弧度
 
-    return alpha_rRad, theta_iRad, height, proj, s1_azimuth_across
+    return alpha_rRad, theta_iRad, height, s1_azimuth_across,proj
 
 
-def Distortion(alpha_rRad, theta_iRad, image, height, proj, scale, AOI_buffer):
+def Distortion(alpha_rRad, theta_iRad, image,proj, height, AOI_buffer):
     # ------------------------------RS几何畸变区域--------------------------------- 同戴可人：高山峡谷区滑坡灾害隐患InSAR早期识别
     layover = alpha_rRad.gt(theta_iRad).rename('layover')
     ninetyRad = ee.Image.constant(90).multiply(np.pi / 180)
@@ -154,50 +182,25 @@ def Distortion(alpha_rRad, theta_iRad, image, height, proj, scale, AOI_buffer):
     # layover =
 
     # combine layover and shadow,因为shadow和layover都是0
-    no_data_mask = layover.And(shadow).rename('no_data_mask')
     no_data_maskrgb = rgbmask(image, layover, shadow)
 
     image2 = (
         Eq_pixels(image.select('VV')).rename('VV_sigma0').addBands(Eq_pixels(image.select('VH')).rename('VH_sigma0'))
         .addBands(Eq_pixels(image.select('angle')).rename('incAngle')).addBands(Eq_pixels(layover).rename('layover'))
         .addBands(Eq_pixels(shadow).rename('shadow'))
-        .addBands(Eq_pixels(no_data_mask).rename('no_data_mask'))
-        .addBands(no_data_maskrgb).addBands(Eq_pixels(height).rename('height')))
+        .addBands(no_data_maskrgb)
+        .addBands(Eq_pixels(height).rename('height')))
 
     cal_image = (image2.addBands(ee.Image.pixelCoordinates(proj)).addBands(ee.Image.pixelLonLat())
-                 .reproject(crs=proj, scale=scale).updateMask(image2.select('VV_sigma0').mask()).clip(AOI_buffer))
+                 .updateMask(image2.select('VV_sigma0').mask()).clip(AOI_buffer))
     # print("Corrected across-range-look direction", s1_azimuth_across.getInfo())
     # print("True azimuth across-range-look direction", ee.Number(Heading).subtract(90.0).getInfo())
     return cal_image
 
 
-def AuxiliaryLine2Point(cal_image, s1_azimuth_across,coordinates_dict, Auxiliarylines, scale):
-    # 计算斜率
-    K = angle2slope(s1_azimuth_across)
-
-    # 过Auxiliarylines中的点，从最小经度到最大经度
-    Max_Lon = coordinates_dict['maxLon'].getInfo()
-    Min_Lon = coordinates_dict['minLon'].getInfo()
-
-    AuxiliaryPoints = reduce_tolist(cal_image.select(['longitude', 'latitude']).clip(Auxiliarylines),
-                                    scale=scale).getInfo()
-    # 获取辅助线上的所有点数据
-    Aux_lon = np.array(AuxiliaryPoints['longitude'])
-    Aux_lon, indices_Aux_lon = np.unique(Aux_lon, return_index=True)
-    Aux_lat = np.array(AuxiliaryPoints['latitude'])[indices_Aux_lon]
-
-    Templist = []
-    for X, Y in zip(Aux_lon, Aux_lat):
-        C = Y - K * X
-        Min_Lon_Y = K * Min_Lon + C
-        Max_lon_Y = K * Max_Lon + C
-        Templist.append(ee.Feature(ee.Geometry.LineString(
-            [Min_Lon, Min_Lon_Y, Max_Lon, Max_lon_Y])))
-    return Templist
-
 
 # 线性几何畸变校正
-def Line_Correct(cal_image, Templist, orbitProperties_pass, proj, scale: int):
+def Line_Correct(cal_image,AOI,Templist, orbitProperties_pass, proj, scale:int,cal_image_scale:int):
     line_points_list = []
     LPassive_layover_linList = []
     RPassive_layover_linList = []
@@ -210,7 +213,7 @@ def Line_Correct(cal_image, Templist, orbitProperties_pass, proj, scale: int):
         LineImg_point = LineImg.reduceRegion(
             reducer=ee.Reducer.toList(),
             geometry=cal_image.geometry(),
-            scale=30,
+            scale=scale,
             maxPixels=1e13)
         line_points_list.append(LineImg_point)
     list_of_dicts = ee.List(line_points_list).getInfo()  # 需转换数据到本地，严重耗时
@@ -222,10 +225,10 @@ def Line_Correct(cal_image, Templist, orbitProperties_pass, proj, scale: int):
             order = np.argsort(PointDict['x'])[::-1]
         PointDict = {k: np.array(v)[order] for k, v in PointDict.items()}
         PointDict['x'], PointDict['y'] = PointDict['x'] * \
-                                         10, PointDict['y'] * 10  # 像素行列10m分辨率，由proj得
+                                  cal_image_scale, PointDict['y'] * cal_image_scale  # 像素行列10m分辨率，由proj得
 
         # 寻找入射线上DEM的极大值点，Asending左侧可能出现layover，右侧可能出现shadow。  Decending反之
-        EasyIndex = lambda Data, Index, *Keys: [Data[key][Index] for key in Keys]
+
         index_max = argrelextrema(PointDict['height'], np.greater)[0]
         Angle_max, Z_max, X_max, Y_max = EasyIndex(
             PointDict, index_max, 'incAngle', 'height', 'x', 'y')
@@ -272,14 +275,14 @@ def Line_Correct(cal_image, Templist, orbitProperties_pass, proj, scale: int):
 
             # 阴影
             if index_max[each] + 50 < len(PointDict['x']):
-                rangeIndex = range(index_max[each], index_max[each] + 50)
+                rangeIndex = range(index_max[each]+1, index_max[each] + 50)
             else:
-                rangeIndex = range(index_max[each], len(PointDict['x']))
+                rangeIndex = range(index_max[each]+1, len(PointDict['x']))
 
             R_h, R_x, R_y, R_lon, R_lat = EasyIndex(
                 PointDict, rangeIndex, 'height', 'x', 'y', 'longitude', 'latitude')
             R_angle_iRad = np.arctan(
-                (rh - R_h) / np.sqrt(np.square(R_x - rx) + np.square(R_y - ry)))
+                (rh - R_h) / np.sqrt(np.square(R_x - rx) + np.square(R_y - ry)) + sys.float_info.min)
             R_angle = R_angle_iRad * 180 / math.pi
             index_Shadow = np.where(R_angle > (90 - r_angle))[0]
 
@@ -287,7 +290,7 @@ def Line_Correct(cal_image, Templist, orbitProperties_pass, proj, scale: int):
                 tlon_Shadow = R_lon[index_Shadow]
                 tlat_Shadow = R_lat[index_Shadow]
                 ShadowFeatureCollection = ee.FeatureCollection([ee.Feature(ee.Geometry.Point(
-                    x, y), {'values': 3}) for x, y in zip(tlon_Shadow, tlat_Shadow)])
+                    x, y), {'values': 1}) for x, y in zip(tlon_Shadow, tlat_Shadow)])
                 Passive_shadow.append(
                     ShadowFeatureCollection.reduceToImage(['values'], 'mean'))
 
@@ -303,7 +306,7 @@ def Line_Correct(cal_image, Templist, orbitProperties_pass, proj, scale: int):
                     tlon_RLay = R_lon[index_Rlayover]
                     tlat_RLay = R_lat[index_Rlayover]
                     RLayFeatureCollection = ee.FeatureCollection([ee.Feature(
-                        ee.Geometry.Point(x, y), {'values': 5}) for x, y in zip(tlon_RLay, tlat_RLay)])
+                        ee.Geometry.Point(x, y), {'values': 1}) for x, y in zip(tlon_RLay, tlat_RLay)])
                     RPassive_layover.append(
                         RLayFeatureCollection.reduceToImage(['values'], 'mean'))
 
@@ -319,14 +322,13 @@ def Line_Correct(cal_image, Templist, orbitProperties_pass, proj, scale: int):
 
         if len(Passive_shadow) != 0:
             aggregated_image = ee.ImageCollection(
-                Passive_shadow).mosaic().reproject(crs=proj, scale=30)
+                Passive_shadow).mosaic().reproject(crs=proj, scale=scale)
             Shadow_linList.append(aggregated_image)
 
-    LeftLayover = ee.ImageCollection(LPassive_layover_linList).mosaic()
-    RightLayover = ee.ImageCollection(RPassive_layover_linList).mosaic()
-    Shadow = ee.ImageCollection(Shadow_linList).mosaic()
+    LeftLayover = ee.ImageCollection(LPassive_layover_linList).mosaic().reproject(crs=proj, scale=scale).clip(AOI)
+    RightLayover = ee.ImageCollection(RPassive_layover_linList).mosaic().reproject(crs=proj, scale=scale).clip(AOI)
+    Shadow = ee.ImageCollection(Shadow_linList).mosaic().reproject(crs=proj, scale=scale).clip(AOI)
 
-    return LeftLayover, RightLayover, Shadow
-
+    return LeftLayover.toInt8(), RightLayover.toInt8(), Shadow.toInt8()
 
 
