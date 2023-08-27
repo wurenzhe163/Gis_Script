@@ -2,7 +2,10 @@ import os
 import geemap
 from Correct_filter import *
 import copy
+<<<<<<< .merge_file_a09308
 from tqdm import tqdm, trange
+=======
+>>>>>>> .merge_file_a13996
 
 def make_dir(path):
     isExists = os.path.exists(path)
@@ -59,7 +62,11 @@ def image2vector(result,resultband=0,radius=10,GLarea=1.,scale=10,FilterBound=No
 
 def clip_AOI(col, AOI): return col.clip(AOI)
 
+<<<<<<< .merge_file_a09308
 def cut_geometryGEE(geometry,block_size:float=0.05):
+=======
+def cut_geometry(geometry,block_size:float=0.05):
+>>>>>>> .merge_file_a13996
   '''
   block_size 定义方块大小(地理坐标系度),0.01约等于1km
   '''
@@ -84,12 +91,18 @@ def cut_geometryGEE(geometry,block_size:float=0.05):
 
   # 生成方块列表
   block_list = []
+<<<<<<< .merge_file_a09308
   for row in trange(num_rows):
       for col in trange(num_cols):
+=======
+  for row in range(num_rows):
+      for col in range(num_cols):
+>>>>>>> .merge_file_a13996
           block = create_blocks(ee.Number(row), ee.Number(col))
           block_list.append(block)
   return block_list
 
+<<<<<<< .merge_file_a09308
 def cut_geometry(geometry,block_size:float=0.05):
   block_size = 0.05
   bounds = geometry.bounds().coordinates().getInfo()[0]
@@ -114,6 +127,8 @@ def cut_geometry(geometry,block_size:float=0.05):
       block_list.append(block)
   return block_list
 
+=======
+>>>>>>> .merge_file_a13996
 def time_difference(col, middle_date):
     '''计算middle_date与col包含日期的差值'''
     time_difference = middle_date.difference(
@@ -157,7 +172,10 @@ def load_image_collection(aoi, start_date, end_date, middle_date,
               .filterBounds(aoi)
               .filterDate(start_date, end_date))
   s1_col_copy = copy.deepcopy(s1_col)
+<<<<<<< .merge_file_a09308
 
+=======
+>>>>>>> .merge_file_a13996
   # 图像滤波，可选
   if Filter:
       print('Begin Filter ...')
@@ -179,7 +197,12 @@ def load_image_collection(aoi, start_date, end_date, middle_date,
       print('Begin Slop Correction ...')
       s1_col = slope_correction(s1_col, dem, model, buffer=buffer)
   else:
+<<<<<<< .merge_file_a09308
 
+=======
+      Rename = lambda image:image.rename(['VV_sigma0', 'VH_sigma0','incAngle'])
+      s1_col = s1_col.map(Rename)
+>>>>>>> .merge_file_a13996
       print('Without Slop Correction')
 
   # 裁剪并计算空洞数量
