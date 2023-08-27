@@ -159,8 +159,6 @@ def slope_correction(collection, elevation, model, buffer=0):
             gamma0_flat.log10()).select(['VV', 'VH'],
                                         ['VV_gamma0flat', 'VH_gamma0flat']))
 
-        masks = _masking(alpha_rRad, theta_iRad, buffer)
-
         # calculate the ratio for RGB vis
         ratio_flat = (gamma0_flatDB.select('VV_gamma0flat').subtract(
             gamma0_flatDB.select('VH_gamma0flat')).rename('ratio_gamma0flat'))

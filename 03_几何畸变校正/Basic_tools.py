@@ -179,8 +179,7 @@ def load_image_collection(aoi, start_date, end_date, middle_date,
       print('Begin Slop Correction ...')
       s1_col = slope_correction(s1_col, dem, model, buffer=buffer)
   else:
-      Rename = lambda image:image.rename(['VV_sigma0', 'VH_sigma0','incAngle'])
-      s1_col = s1_col.map(Rename)
+
       print('Without Slop Correction')
 
   # 裁剪并计算空洞数量
