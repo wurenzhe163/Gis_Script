@@ -4,6 +4,43 @@ import numpy as np
 from functools import partial
 
 # -----------------------------------------------地形校正-----------------------------------------
+def volumetric_model_SCF(theta_iRad, alpha_rRad):
+    '''Code for calculation of volumetric model SCF
+        体积模型
+    :param theta_iRad: ee.Image of incidence angle in radians
+    :param alpha_rRad: ee.Image of slope steepness in range
+
+    :returns: ee.Image
+    '''
+
+    # create a 90 degree image in radians
+    ninetyRad = ee.Image.constant(90).multiply(np.pi / 180)
+
+    # model
+    nominator = (ninetyRad.subtract(theta_iRad).add(alpha_rRad)).tan()
+    denominator = (ninetyRad.subtract(theta_iRad)).tan()
+    return nominator.divide(denominator)
+
+def surface_model_SCF(theta_iRad, alpha_rRad, alpha_azRad):
+    '''Code for calculation of direct model SCF
+        表面模型
+    :param theta_iRad: ee.Image of incidence angle in radians
+    :param alpha_rRad: ee.Image of slope steepness in range
+    :param alpha_azRad: ee.Image of slope steepness in azimuth
+
+    :returns: ee.Image
+    '''
+
+    # create a 90 degree image in radians
+    ninetyRad = ee.Image.constant(90).multiply(np.pi / 180)
+
+    # model
+    nominator = (ninetyRad.subtract(theta_iRad)).cos()
+    denominator = (alpha_azRad.cos().multiply(
+        (ninetyRad.subtract(theta_iRad).add(alpha_rRad)).cos()))
+
+    return nominator.divide(denominator)
+
 def slope_correction(collection, elevation, model, buffer=0):
     '''This function applies the slope correction on a collection of Sentinel-1 data
 
@@ -14,43 +51,6 @@ def slope_correction(collection, elevation, model, buffer=0):
        #
        :returns: ee.Image
     '''
-
-    def _volumetric_model_SCF(theta_iRad, alpha_rRad):
-        '''Code for calculation of volumetric model SCF
-            体积模型
-        :param theta_iRad: ee.Image of incidence angle in radians
-        :param alpha_rRad: ee.Image of slope steepness in range
-
-        :returns: ee.Image
-        '''
-
-        # create a 90 degree image in radians
-        ninetyRad = ee.Image.constant(90).multiply(np.pi / 180)
-
-        # model
-        nominator = (ninetyRad.subtract(theta_iRad).add(alpha_rRad)).tan()
-        denominator = (ninetyRad.subtract(theta_iRad)).tan()
-        return nominator.divide(denominator)
-
-    def _surface_model_SCF(theta_iRad, alpha_rRad, alpha_azRad):
-        '''Code for calculation of direct model SCF
-            表面模型
-        :param theta_iRad: ee.Image of incidence angle in radians
-        :param alpha_rRad: ee.Image of slope steepness in range
-        :param alpha_azRad: ee.Image of slope steepness in azimuth
-
-        :returns: ee.Image
-        '''
-
-        # create a 90 degree image in radians
-        ninetyRad = ee.Image.constant(90).multiply(np.pi / 180)
-
-        # model
-        nominator = (ninetyRad.subtract(theta_iRad)).cos()
-        denominator = (alpha_azRad.cos().multiply(
-            (ninetyRad.subtract(theta_iRad).add(alpha_rRad)).cos()))
-
-        return nominator.divide(denominator)
 
     def _erode(image, distance):
         '''Buffer function for raster
@@ -148,16 +148,16 @@ def slope_correction(collection, elevation, model, buffer=0):
             gamma0dB.select('VH_gamma0')).rename('ratio_gamma0'))
 
         if model == 'volume':
-            scf = _volumetric_model_SCF(theta_iRad, alpha_rRad)
+            scf = volumetric_model_SCF(theta_iRad, alpha_rRad)
 
         if model == 'surface':
-            scf = _surface_model_SCF(theta_iRad, alpha_rRad, alpha_azRad)
+            scf = surface_model_SCF(theta_iRad, alpha_rRad, alpha_azRad)
 
         # apply model for Gamm0_f
         gamma0_flat = gamma0.divide(scf)
         gamma0_flatDB = (ee.Image.constant(10).multiply(
-            gamma0_flat.log10()).select(['VV', 'VH'],
-                                        ['VV_gamma0flat', 'VH_gamma0flat']))
+            gamma0_flat.log10()).select(['VV', 'VH'],['VV_gamma0flat', 'VH_gamma0flat']))
+        masks = _masking(alpha_rRad, theta_iRad, buffer)
 
         # calculate the ratio for RGB vis
         ratio_flat = (gamma0_flatDB.select('VV_gamma0flat').subtract(
