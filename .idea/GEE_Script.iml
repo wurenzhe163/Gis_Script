@@ -3,7 +3,7 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$" />
     <content url="file://$MODULE_DIR$/../python-script" />
-    <orderEntry type="jdk" jdkName="D:\Code_base\anaconda\envs\GEE" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="D:\Wrz\anaconda\envs\GEE" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PyDocumentationSettings">

@@ -201,6 +201,7 @@ def Distortion(alpha_rRad, theta_iRad, image,proj, height, AOI_buffer):
 
 # 线性几何畸变校正
 def Line_Correct(cal_image,AOI,Templist, orbitProperties_pass, proj, scale:int,cal_image_scale:int):
+
     line_points_list = []
     LPassive_layover_linList = []
     RPassive_layover_linList = []

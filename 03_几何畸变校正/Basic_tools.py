@@ -42,9 +42,80 @@ def calculate_iou(geometry1, geometry2):
     union_area = union.area()
     return intersection_area.divide(union_area)
 
-def get_minmax(Image:ee.Image):
-    return Image.reduceRegion(reducer=ee.Reducer.minMax(),geometry=Image.geometry(),scale=10,bestEffort=True)
+#--------------------Norm----------------------
+def get_minmax(Image:ee.Image,scale:int=10):
+    '''Image 只能包含有一个波段，否则不能重命名'''
+    Obj = Image.reduceRegion(reducer=ee.Reducer.minMax(),geometry=Image.geometry(),scale=scale,bestEffort=True)
+    return Obj.rename(**{'from': Obj.keys(), 'to': ['max', 'min']})
 
+def get_meanStd(Image:ee.Image,scale:int=10):
+    '''Image 只能包含有一个波段，否则不能重命名'''
+    Obj = Image.reduceRegion(reducer=ee.Reducer.mean().combine(ee.Reducer.stdDev(), sharedInputs=True),
+                       geometry=Image.geometry(), scale=scale, bestEffort=True)
+    return Obj.rename(**{'from': Obj.keys(), 'to': ['mean', 'std']})
+
+def minmax_norm(Image:ee.Image,scale:int=10):
+    minmax = get_minmax(Image,scale=scale)
+    nominator = Image.subtract(ee.Number(minmax.get('min')))
+    denominator = ee.Number(minmax.get('max')).subtract(ee.Number(minmax.get('min')))
+    return nominator.divide(denominator)
+
+def meanStd_norm(Image:ee.Image,scale:int=10):
+    # Z-Score标准化
+    meanStd = get_meanStd(Image,scale=scale)
+    return Image.subtract(ee.Number(meanStd.get('mean'))).divide(ee.Number(meanStd.get('std')))
+
+# --------------------------------直方图匹配
+def histogramMatching(sourceImg, targetImg,AOI,source_bandsNames,target_bandsNames,Histscale=30,maxBuckets=256):
+    '''
+    直方图匹配
+    :param sourceImg: 源影像
+    :param targetImg: 目标影像
+    :param AOI: 匹配区域
+    :param Histscale: 直方图匹配的分辨率
+    :param maxBuckets: 直方图匹配的最大桶数
+    :return: 匹配后的源图像
+    '''
+    def lookup(sourceHist, targetHist):
+        # 第一列数据是原始值，第二列是统计的累积数量
+        sourceValues = sourceHist.slice(1, 0, 1).project([0])
+        sourceCounts = sourceHist.slice(1, 1, 2).project([0])
+        sourceCounts = sourceCounts.divide(sourceCounts.get([-1]))
+
+        targetValues = targetHist.slice(1, 0, 1).project([0])
+        targetCounts = targetHist.slice(1, 1, 2).project([0])
+        targetCounts = targetCounts.divide(targetCounts.get([-1]))
+
+        # 遍历原始数据值，查找大于这个值的最大索引，然后返回对应的数据
+        def _n(n):
+            index = targetCounts.gte(n).argmax()
+            return targetValues.get(index)
+
+        yValues = sourceCounts.toList().map(_n)
+        return {'x': sourceValues.toList(), 'y': yValues}
+
+    source_bandsNames = source_bandsNames
+    target_bandsNames = target_bandsNames
+    assert len(source_bandsNames) == len(target_bandsNames), 'source and target image must have the same number of bands'
+
+    args = {
+        'reducer': ee.Reducer.autoHistogram(**{'maxBuckets': maxBuckets, 'cumulative': True}),
+        'geometry': AOI,
+        'scale': Histscale,
+        'maxPixels': 1e13,
+        'tileScale':16
+    }
+    source = sourceImg.reduceRegion(**args)
+    target = targetImg.updateMask(sourceImg.mask()).reduceRegion(**args)
+
+    Copy_sourceImg = []
+    for band_source,band_target in zip(source_bandsNames,target_bandsNames):
+        Lookup = lookup(source.getArray(band_source), target.getArray(band_target))
+        Copy_sourceImg.append(sourceImg.select([band_source]).interpolate(**Lookup))
+
+    return ee.Image.cat(Copy_sourceImg)
+
+# --------------------------------图像转矢量
 def image2vector(result,resultband=0,radius=10,GLarea=1.,scale=10,FilterBound=None):
 
   # 图像学运算，避免噪点过多，矢量化失败
