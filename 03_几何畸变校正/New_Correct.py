@@ -200,7 +200,7 @@ def Distortion(alpha_rRad, theta_iRad, image,proj, height, AOI_buffer):
 
 
 # 线性几何畸变校正
-def Line_Correct2(cal_image,AOI,Templist, orbitProperties_pass, proj, scale:int,cal_image_scale:int):
+def Line_Correct(cal_image,AOI,Templist, orbitProperties_pass, proj, scale:int,cal_image_scale:int):
 
     line_points_list = []
     LPassive_layover_linList = []
@@ -263,6 +263,12 @@ def Line_Correct2(cal_image,AOI,Templist, orbitProperties_pass, proj, scale:int,
                 (rh - L_h) / np.sqrt(np.square(L_x - rx) + np.square(L_y - ry)))
             Llay_angle = Llay_angle_iRad * 180 / math.pi
             index_Llay = np.where(Llay_angle > r_angle)[0]
+            if len(index_Llay) != 0 and len(
+                    np.where(PointDict['layover'][[rangeIndex[index_Llay[i]] for i in range(len(index_Llay))]] == 1)[
+                        0]) != 0:
+                start_index_local = \
+                np.where(PointDict['layover'][[rangeIndex[index_Llay[i]] for i in range(len(index_Llay))]] == 1)[0][0]
+                index_Llay = index_Llay[:start_index_local]
 
             if len(index_Llay) != 0:
                 tlon_Llay = L_lon[index_Llay]
@@ -333,7 +339,7 @@ def Line_Correct2(cal_image,AOI,Templist, orbitProperties_pass, proj, scale:int,
     return LeftLayover.toInt8(), RightLayover.toInt8(), Shadow.toInt8()
 
 # 被动几何畸变识别（方法2）
-def Line_Correct_test(cal_image,AOI_buffer,Templist, orbitProperties_pass, proj, scale:int):
+def Line_Correct_test2(cal_image,AOI_buffer,Templist, orbitProperties_pass, proj, scale:int):
     line_points_list = []
     # LPassive_layover_linList = []
     # RPassive_layover_linList = []
