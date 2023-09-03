@@ -1,0 +1,251 @@
+import ee
+from functools import partial
+from skimage.filters import threshold_minimum
+import geemap
+import geopandas as gpd
+import pandas as pd
+from Basic_tools import Open_close,calculate_iou
+import os
+
+class img_sharp(object):
+    '''图像锐化'''
+    @staticmethod
+    def DoG(Img:ee.Image,fat_radius:int=3,fat_sigma:float=1.,
+            skinny_radius:int=3,skinny_sigma:float=0.5):
+        '''Difference of Gaussians (DoG)'''
+        # Create the Difference of Gaussians (DoG) kernel
+        fat = ee.Kernel.gaussian(radius=fat_radius, sigma=fat_sigma, units='pixels')
+        skinny = ee.Kernel.gaussian(radius=skinny_radius, sigma=skinny_sigma, units='pixels')
+
+        # Convolve the image with the Gaussian kernels
+        convolved_fat = Img.convolve(fat)
+        convolved_skinny = Img.convolve(skinny)
+
+        return convolved_fat.subtract(convolved_skinny)
+
+    @staticmethod
+    def Laplacian(Img:ee.Image,normalize:bool=True):
+        '''Laplacian'''
+        # Create the Laplacian kernel
+        kernel = ee.Kernel.laplacian8(normalize=normalize)
+
+        # Convolve the image with the Laplacian kernel
+        return Img.convolve(kernel)
+
+    @staticmethod
+    def Laplacian_of_Gaussian(Img:ee.Image,radius:int=3,sigma:float=1.):
+        '''Laplacian of Gaussian'''
+
+class Polarization_comb(object):
+    '''极化组合，暂时没有想好怎么用'''
+    pass
+
+class Cluster_extract(object):
+    '''聚类提取'''
+    @staticmethod
+    def afn_Kmeans(inputImg, defaultStudyArea, numberOfUnsupervisedClusters=2, nativeScaleOfImage=10, numPixels=1000):
+        '''
+        inputImg：任何图像，所有波段将用于聚类。
+        numberOfUnsupervisedClusters：要创建的聚类数的可调参数。
+        defaultStudyArea：训练样本的默认区域。
+        nativeScaleOfImage：图像的本地比例尺。
+        '''
+        # Make a new sample set on the inputImg. Here the sample set is randomly selected spatially.并训练
+        training = inputImg.sample(region=defaultStudyArea, scale=nativeScaleOfImage, numPixels=numPixels)
+        cluster = ee.Clusterer.wekaKMeans(numberOfUnsupervisedClusters).train(training)
+        # Now apply that clusterer to the raw image that was also passed in.
+        toexport = inputImg.cluster(cluster)
+        # 选择分类结果，并进行重命名
+        clusterUnsup = toexport.select(0).rename('unsupervisedClass')
+        return clusterUnsup
+
+    @staticmethod
+    def afn_Cobweb(inputImg, defaultStudyArea, cutoff=0.004, nativeScaleOfImage=10, numPixels=1000):
+        # 这个算法效果一般
+        training = inputImg.sample(region=defaultStudyArea, scale=nativeScaleOfImage, numPixels=numPixels)
+        cluster = ee.Clusterer.wekaCobweb(cutoff=cutoff).train(training)
+        toexport = inputImg.cluster(cluster)
+        # 选择分类结果，并进行重命名
+        clusterUnsup = toexport.select(0).rename('unsupervisedClass')
+        return clusterUnsup
+
+    @staticmethod
+    def afn_Xmeans(inputImg, defaultStudyArea, numberOfUnsupervisedClusters=2, nativeScaleOfImage=10, numPixels=1000):
+        training = inputImg.sample(region=defaultStudyArea, scale=nativeScaleOfImage, numPixels=numPixels)
+        cluster = ee.Clusterer.wekaXMeans(maxClusters=numberOfUnsupervisedClusters).train(training)
+        toexport = inputImg.cluster(cluster)
+        clusterUnsup = toexport.select(0).rename('unsupervisedClass')
+        return clusterUnsup
+
+    @staticmethod
+    def afn_LVQ(inputImg, defaultStudyArea, numberOfUnsupervisedClusters=2, nativeScaleOfImage=10, numPixels=1000):
+        training = inputImg.sample(region=defaultStudyArea, scale=nativeScaleOfImage, numPixels=numPixels)
+        cluster = ee.Clusterer.wekaLVQ(numClusters=numberOfUnsupervisedClusters).train(training)
+        toexport = inputImg.cluster(cluster)
+        clusterUnsup = toexport.select(0).rename('unsupervisedClass')
+        return clusterUnsup
+
+    @staticmethod
+    def afn_CascadeKMeans(inputImg, defaultStudyArea, numberOfUnsupervisedClusters=2, nativeScaleOfImage=10,
+                          numPixels=1000):
+        training = inputImg.sample(region=defaultStudyArea, scale=nativeScaleOfImage, numPixels=numPixels)
+        cluster = ee.Clusterer.wekaCascadeKMeans(maxClusters=numberOfUnsupervisedClusters).train(training)
+        toexport = inputImg.cluster(cluster)
+        clusterUnsup = toexport.select(0).rename('unsupervisedClass')
+        return clusterUnsup
+
+    @staticmethod
+    def afn_SNIC(imageOriginal, SuperPixelSize=10, Compactness=1, Connectivity=4, NeighborhoodSize=20,
+                 SeedShape='square'):
+        '''
+        下面是对 afn_SNIC 函数的参数进行解释：
+        imageOriginal: 要进行超像素分割的原始图像。这是必需的参数。
+        SuperPixelSize: default=5意思是超像素大小，即生成的超像素的平均大小。通常情况下，该值取决于你要处理的图像的大小和分辨率。如果原始图像比较大，那么超像素的大小可以设置得较大，例如100或200像素。如果原始图像比较小，那么超像素的大小应设置得比较小，例如10或20像素。
+        Compactness: default=1该参数控制着每个超像素的形态。它的值通常在[1,20]范围内取值。Compactness值越小，超像素类别的形状越规则，而 Compactness值越大，超像素的形状越灵活。
+        Connectivity: default=8连通性参数，描述每个像素与周围像素的关系，这个参数通常设为8。
+        NeighborhoodSize：瓦片邻域大小（为了避免瓦片边界伪影）。默认为2 * size。定义像素颜色在计算距离时考虑的领域大小。值越大，超像素越平滑，边缘越模糊；值越小，超像素分割边缘更为锐利。
+        SeedShape：种子形状，可以是“square”或“hex”。
+        '''
+        theSeeds = ee.Algorithms.Image.Segmentation.seedGrid(SuperPixelSize, SeedShape)
+
+        snic2 = ee.Algorithms.Image.Segmentation.SNIC(image=imageOriginal,
+                                                      size=SuperPixelSize,
+                                                      compactness=Compactness,
+                                                      connectivity=Connectivity,
+                                                      neighborhoodSize=NeighborhoodSize,
+                                                      seeds=theSeeds)
+        theStack = snic2.addBands(theSeeds)
+        return theStack
+
+class Adaptive_threshold(object):
+    @staticmethod
+    def afn_otsu(histogram):
+        '''大津法，类间方差最大化'''
+        # 各组频数
+        counts = ee.Array(ee.Dictionary(histogram).get('histogram'))
+        # 各组的值
+        means = ee.Array(ee.Dictionary(histogram).get('bucketMeans'))
+        # 组数
+        size = means.length().get([0])
+        # 总像元数量
+        total = counts.reduce(ee.Reducer.sum(), [0]).get([0])
+        # 所有组的值之和
+        sum_ = means.multiply(counts).reduce(ee.Reducer.sum(), [0]).get([0])
+        # 整幅影像的均值
+        mean_ = sum_.divide(total)
+        # 与组数相同长度的索引
+        indices = ee.List.sequence(1, size)
+
+        def calc_bss(i, sum_, mean_):
+            '''穷举法计算类内方差'''
+            aCounts = counts.slice(0, ee.Number(i))
+            # 从i分割为两类A、B 计算A方差
+            aCount = aCounts.reduce(ee.Reducer.sum(), [0]).get([0])
+            aMeans = means.slice(0, ee.Number(i))
+            # 类别A均值
+            aMean = aMeans.multiply(aCounts).reduce(ee.Reducer.sum(), [0]).get([0]).divide(aCount)
+            bCount = total.subtract(aCount)
+            # 类别B均值
+            bMean = sum_.subtract(aCount.multiply(aMean)).divide(bCount)
+            # 类间方差
+            return aCount.multiply(aMean.subtract(mean_).pow(2)).add(bCount.multiply(bMean.subtract(mean_).pow(2)))
+
+        # 计算类内方差
+        bss = indices.map(partial(calc_bss, sum_=sum_, mean_=mean_))
+        # 排序选出最适阈值
+        return means.sort(bss).get([-1])
+
+    @staticmethod
+    def afn_histPeak(img, region=None):
+        '''
+        采用skimage计算双峰
+        参考论文：An analysis of histogram-based thresholding algorithms
+        The analysis of cell images
+        '''
+        # img = img.unmask(-999)
+        img_numpy = geemap.ee_to_numpy(img, region=region)  # region必须是矩形
+        threshold = threshold_minimum(img_numpy)
+        return threshold
+
+class Supervis_classify(object):
+    pass
+
+class Reprocess(object):
+    '''图像后处理算法'''
+    @staticmethod
+    def Open_close(img, radius=10):
+        uniformKernel = ee.Kernel.square(**{'radius': radius, 'units': 'meters'})
+        min = img.reduceNeighborhood(**{'reducer': ee.Reducer.min(), 'kernel': uniformKernel})
+        Openning = min.reduceNeighborhood(**{'reducer': ee.Reducer.max(), 'kernel': uniformKernel})
+        max = Openning.reduceNeighborhood(**{'reducer': ee.Reducer.max(), 'kernel': uniformKernel})
+        Closing = max.reduceNeighborhood(**{'reducer': ee.Reducer.min(), 'kernel': uniformKernel})
+        return Closing
+
+    @staticmethod
+    def image2vector(result, resultband=0, radius=10,GLarea=1., scale=10,FilterBound=None):
+
+        # 图像学运算，避免噪点过多，矢量化失败
+        Closing_result = Open_close(result.select(resultband), radius = radius)
+        # 分类图转为矢量并删除背景，添加select(0)会减少bug，不晓得为啥
+        if GLarea > 20:
+            Vectors = Closing_result.select(0).reduceToVectors(scale=scale*3, geometryType='polygon',
+                                                               eightConnected=True,bestEffort=True)
+        else:
+            Vectors = Closing_result.select(0).reduceToVectors(scale=scale, geometryType='polygon',
+                                                               eightConnected=True,bestEffort=True)
+        Max_count = Vectors.aggregate_max('count')
+        NoBackground_Vectors = Vectors.filterMetadata('count', 'not_equals', Max_count)
+        # 提取分类结果,并合并为一个矢量
+        Extract = NoBackground_Vectors.filterBounds(FilterBound)
+        Union_ex = ee.Feature(Extract.union(1).first())
+
+        return Union_ex
+
+class save_parms(object):
+    @staticmethod
+    def save_log(log, mode='gpd', crs='EPSG:4326', logname='log.csv', shapname='log.shp'):
+        '''
+        mode = 'pd' or 'gpd'
+        '''
+        if os.path.exists(logname):
+            if mode == 'gpd':
+                log.crs = crs
+                log.to_file(shapname, driver='ESRI Shapefile', mode='a')
+            log.to_csv(logname, mode='a', index=False, header=0)
+        else:
+            if mode == 'gpd':
+                log.crs = crs
+                log.to_file(shapname, driver='ESRI Shapefile', mode='w')
+            log.to_csv(logname, mode='w', index=False)
+
+    @staticmethod
+    def write_pd(Union_ex, index, AOI_area,mode='gpd', Method='SNIC_Kmean', Band=[0, 1, 3], WithOrigin=0, pd_dict=None,
+                 Area_real=None, logname='log.csv', shapname='log.shp', calIoU=True):
+        # 写入pandas
+        Area_ = Union_ex.area().divide(ee.Number(1000 * 1000)).getInfo()
+        if calIoU:
+            IoU = calculate_iou(Union_ex, AOI_area).getInfo()
+        else:
+            IoU = False
+
+        if mode == 'gpd':
+            log = gpd.GeoDataFrame.from_features([Union_ex.getInfo()])
+            log = log.assign(**{'Method': Method,
+                                'Band': str(Band),
+                                'WithOrigin': WithOrigin,
+                                **pd_dict,
+                                'Area_pre': [Area_],
+                                'Area_real': [Area_real],
+                                'IoU': IoU,
+                                'index': index})
+        else:
+            log = pd.DataFrame({'Method': Method,
+                                'Band': str(Band),
+                                'WithOrigin': WithOrigin,
+                                **pd_dict,
+                                'Area_pre': [Area_],
+                                'Area_real': [Area_real],
+                                'IoU': IoU, },
+                               index=[index])
+
+        save_parms.save_log(log, mode=mode, logname=logname, shapname=shapname)

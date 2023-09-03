@@ -29,6 +29,7 @@ def getASCCorners(image, AOI_buffer, orbitProperties_pass):
         rotationFromNorth = azimuth.subtract(180.0)
     else:
         raise TypeError
+
     azimuthEdge = (ee.Feature(ee.Geometry.LineString([crdLons.get(crdLats.indexOf(minLat)), minLat, minLon,
                                                       crdLats.get(crdLons.indexOf(minLon))]),
                               {'azimuth': azimuth}).copyProperties(image))
@@ -88,10 +89,8 @@ def angle2slope(angle):
     return slop
 
 def AuxiliaryLine2Point(cal_image, s1_azimuth_across,coordinates_dict, Auxiliarylines, scale):
-
     # 计算斜率
     K = angle2slope(s1_azimuth_across)
-
     # 过Auxiliarylines中的点，从最小经度到最大经度
     Max_Lon = coordinates_dict['maxLon'].getInfo()
     Min_Lon = coordinates_dict['minLon'].getInfo()
@@ -112,92 +111,12 @@ def AuxiliaryLine2Point(cal_image, s1_azimuth_across,coordinates_dict, Auxiliary
             [Min_Lon, Min_Lon_Y, Max_Lon, Max_lon_Y])))
     return Templist
 
-
 # 将图像像素数量与经纬度等匹配
 def Eq_pixels(x): return ee.Image.constant(0).where(x, x).updateMask(x.mask())
-
 
 # 将图像转为点数据表达
 def reduce_tolist(each, scale): return ee.Image(each).reduceRegion(
     reducer=ee.Reducer.toList(), geometry=each.geometry(), scale=scale, maxPixels=1e13)
-
-
-# 普通几何畸变校正
-def cal_LIA(image, DEM, AOI_buffer, orbitProperties_pass):
-    elevation = DEM
-    geom = image.geometry()
-    proj = image.select(1).projection()
-
-    # Angle_aspect = ee.Terrain.aspect(image.select('angle'))
-    # s1_azimuth_across = Angle_aspect.reduceRegion(ee.Reducer.mean(), geom, 1000).get('aspect')
-
-    azimuthEdge, rotationFromNorth, startpoint, endpoint, coordinates_dict = getASCCorners(image, AOI_buffer,
-                                                                                           orbitProperties_pass)
-    Heading = azimuthEdge.get('azimuth')
-
-    s1_azimuth_across = ee.Number(Heading).subtract(90.0)
-    theta_iRad = image.select('angle').multiply(np.pi / 180)  # 地面入射角度转为弧度
-    phi_iRad = ee.Image.constant(s1_azimuth_across).multiply(np.pi / 180)  # 方位角转弧度
-
-    alpha_sRad = ee.Terrain.slope(elevation).select('slope').multiply(
-        np.pi / 180).setDefaultProjection(proj).clip(geom)  # 坡度(与地面夹角)
-    phi_sRad = ee.Terrain.aspect(elevation).select('aspect').multiply(
-        np.pi / 180).setDefaultProjection(proj).clip(geom)  # 坡向角，(坡度陡峭度)坡与正北方向夹角(陡峭度)，从正北方向起算，顺时针计算角度
-
-    height = elevation.setDefaultProjection(proj).clip(geom)
-
-    phi_rRad = phi_iRad.subtract(phi_sRad)  # (飞行方向角度-坡度陡峭度)飞行方向与坡向之间的夹角
-    # 分解坡度，在水平方向和垂直方向进行分解，为固定公式，cos对应水平分解，sin对应垂直分解
-    alpha_rRad = (alpha_sRad.tan().multiply(phi_rRad.cos())).atan()  # 距离向分解
-    alpha_azRad = (alpha_sRad.tan().multiply(phi_rRad.sin())).atan()  # 方位向分解
-
-    theta_liaRad = (alpha_azRad.cos().multiply(
-        (theta_iRad.subtract(alpha_rRad)).cos())).acos()  # LIA
-    # theta_liaDeg = theta_liaRad.multiply(180 / np.pi)  # LIA转弧度
-
-    return alpha_rRad, theta_iRad, height, s1_azimuth_across,proj
-
-
-def Distortion(alpha_rRad, theta_iRad, image,proj, height, AOI_buffer):
-    # ------------------------------RS几何畸变区域--------------------------------- 同戴可人：高山峡谷区滑坡灾害隐患InSAR早期识别
-    layover = alpha_rRad.gt(theta_iRad).rename('layover')
-    ninetyRad = ee.Image.constant(90).multiply(np.pi / 180)
-    shadow = alpha_rRad.lt(ee.Image.constant(-1).multiply(ninetyRad.subtract(theta_iRad))).rename('shadow')
-
-    # # ------------------------------IJRS几何畸变区域-------------------------------
-    # layover = alpha_rRad.gt(theta_iRad).rename('layover')
-    # shadow = theta_liaRad.gt(ee.Image.constant(85).multiply(np.pi / 180)).rename('shadow')
-
-    # # ------------------------------武大学报几何畸变区域---------------------------
-    # layover = theta_liaRad.lt(ee.Image.constant(0).multiply(np.pi / 180)).rename('layover')
-    # shadow = theta_liaRad.gt(ee.Image.constant(90).multiply(np.pi / 180)).rename('shadow')
-
-    # RINDEX，暂时无用
-    # Heading_Rad = ee.Image.constant(Heading).multiply(np.pi / 180)
-    # if orbitProperties_pass == 'ASCENDING':
-    #   A = phi_sRad.subtract(Heading_Rad)
-    # elif orbitProperties_pass == 'DESCENDING':
-    #   A = phi_sRad.add(Heading_Rad).add(np.pi)
-    # R_Index = theta_iRad.subtract(alpha_sRad.multiply(A.sin()))
-    # layover =
-
-    # combine layover and shadow,因为shadow和layover都是0
-    no_data_maskrgb = rgbmask(image, layover, shadow)
-
-    image2 = (
-        Eq_pixels(image.select('VV')).rename('VV_sigma0').addBands(Eq_pixels(image.select('VH')).rename('VH_sigma0'))
-        .addBands(Eq_pixels(image.select('angle')).rename('incAngle')).addBands(Eq_pixels(layover).rename('layover'))
-        .addBands(Eq_pixels(shadow).rename('shadow'))
-        .addBands(no_data_maskrgb)
-        .addBands(Eq_pixels(height).rename('height')))
-
-    cal_image = (image2.addBands(ee.Image.pixelCoordinates(proj)).addBands(ee.Image.pixelLonLat())
-                 .updateMask(image2.select('VV_sigma0').mask()).clip(AOI_buffer))
-    # print("Corrected across-range-look direction", s1_azimuth_across.getInfo())
-    # print("True azimuth across-range-look direction", ee.Number(Heading).subtract(90.0).getInfo())
-    return cal_image
-
-
 
 # 线性几何畸变校正
 def Line_Correct(cal_image,AOI,Templist, orbitProperties_pass, proj, scale:int,cal_image_scale:int):
@@ -207,7 +126,7 @@ def Line_Correct(cal_image,AOI,Templist, orbitProperties_pass, proj, scale:int,c
     RPassive_layover_linList = []
     Shadow_linList = []
 
-    for eachLine in tqdm(Templist):
+    for eachLine in Templist:
         # 求与辅助线相交的像素值,求取极值点位置
         LineImg = cal_image.select(
             ['height', 'layover', 'shadow', 'incAngle', 'x', 'y', 'longitude', 'latitude']).clip(eachLine)
@@ -288,6 +207,7 @@ def Line_Correct(cal_image,AOI,Templist, orbitProperties_pass, proj, scale:int,c
             index_Shadow = np.where(R_angle > (90 - r_angle))[0]
 
             if len(index_Shadow) != 0:
+                # 阴影
                 tlon_Shadow = R_lon[index_Shadow]
                 tlat_Shadow = R_lat[index_Shadow]
                 ShadowFeatureCollection = ee.FeatureCollection([ee.Feature(ee.Geometry.Point(

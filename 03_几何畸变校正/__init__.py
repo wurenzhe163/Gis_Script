@@ -1,4 +1,5 @@
-from Basic_tools import *
-from Correct_filter import *
-from S2_filter import *
-from New_Correct import *
+import Basic_tools
+import Correct_filter
+import Extract_algorithm
+import New_Correct
+import S2_filter

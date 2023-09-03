@@ -13,8 +13,8 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
-        <option value="Python Script" />
         <option value="Jupyter Notebook" />
+        <option value="Python Script" />
       </list>
     </option>
   </component>
@@ -36,7 +36,7 @@
     <option name="stateVersion" value="1" />
   </component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="ProjectErrors" />
+    <option name="selectedTabId" value="CurrentFile" />
   </component>
   <component name="ProjectId" id="2Rn4H48tr5hiTat0DmViOdDdzHc" />
   <component name="ProjectViewState">
@@ -57,6 +57,11 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\09_Code\GEE_Script\03_几何畸变校正" />
+    </key>
+  </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
@@ -80,7 +85,8 @@
       <workItem from="1693100574485" duration="9066000" />
       <workItem from="1693142865327" duration="1733000" />
       <workItem from="1693187220221" duration="12897000" />
-      <workItem from="1693357078723" duration="6642000" />
+      <workItem from="1693357078723" duration="18149000" />
+      <workItem from="1693444200062" duration="30593000" />
     </task>
     <servers />
   </component>
