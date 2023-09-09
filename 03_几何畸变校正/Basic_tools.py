@@ -56,15 +56,16 @@ def get_meanStd(Image:ee.Image,scale:int=10):
     return Obj.rename(**{'from': Obj.keys(), 'to': ['mean', 'std']})
 
 def minmax_norm(Image:ee.Image,Bands,scale:int=10):
+    proj = Image.projection()
     for i,eachName in enumerate(Bands):
         cal_band = Image.select(eachName)
         minmax = get_minmax(cal_band, scale=scale)
         nominator = cal_band.subtract(ee.Number(minmax.get('min')))
         denominator = ee.Number(minmax.get('max')).subtract(ee.Number(minmax.get('min')))
         if i == 0:
-            result = nominator.divide(denominator)
+            result = nominator.divide(denominator).reproject(proj)
         else:
-            result = result.addBands(nominator.divide(denominator))
+            result = result.addBands(nominator.divide(denominator)).reproject(proj)
     return result
 
 def meanStd_norm(Image:ee.Image,Bands,scale:int=10):
@@ -261,7 +262,7 @@ def my_slope_correction(s1_ascending,s1_descending,AOI_buffer,DEM,model,Origin_s
         # orbitProperties_pass = image.get('orbitProperties_pass').getInfo()
         # get the image geometry and projection
         geom = image.geometry()
-        proj = image.select(1).projection()
+        proj = image.select(0).projection()
 
         azimuthEdge, rotationFromNorth, startpoint, endpoint, coordinates_dict = getASCCorners(image, AOI_buffer,
                                                                                                orbitProperties_pass)
@@ -318,12 +319,11 @@ def my_slope_correction(s1_ascending,s1_descending,AOI_buffer,DEM,model,Origin_s
         image2 = (Eq_pixels(image.select('VV')).rename('VV_sigma0')
                   .addBands(Eq_pixels(image.select('VH')).rename('VH_sigma0'))
                   .addBands(Eq_pixels(image.select('angle')).rename('incAngle'))
+                  .addBands(gamma0dB)
                   .addBands(Eq_pixels(slop_correction['gamma0_flat'].select('VV')).rename('VV_gamma0_flat'))
                   .addBands(Eq_pixels(slop_correction['gamma0_flat'].select('VH')).rename('VH_gamma0_flat'))
-                  .addBands(
-            Eq_pixels(slop_correction['gamma0_flatDB'].select('VV_gamma0flat')).rename('VV_gamma0_flatDB'))
-                  .addBands(
-            Eq_pixels(slop_correction['gamma0_flatDB'].select('VH_gamma0flat')).rename('VH_gamma0_flatDB'))
+                  .addBands(Eq_pixels(slop_correction['gamma0_flatDB'].select('VV_gamma0flat')).rename('VV_gamma0_flatDB'))
+                  .addBands(Eq_pixels(slop_correction['gamma0_flatDB'].select('VH_gamma0flat')).rename('VH_gamma0_flatDB'))
                   .addBands(Eq_pixels(layover).rename('layover'))
                   .addBands(Eq_pixels(shadow).rename('shadow'))
                   .addBands(no_data_maskrgb)
@@ -401,20 +401,21 @@ def load_image_collection(aoi, start_date, end_date, middle_date,
   # 寻找与时间最接近的图像设置'synthesis': 0，否则'synthesis': 1
   filtered_collection_A = s1_ascending.filter(ee.Filter.eq('numNodata', 0))
   has_images_without_nodata_A = filtered_collection_A.size().eq(0)
+
   s1_ascending = ee.Algorithms.If(
       has_images_without_nodata_A,
-      s1_ascending.median().reproject(s1_ascending.first().projection().crs(), None, 10).set({'synthesis': 1}),
+      s1_ascending.median().reproject(s1_ascending.first().select(0).projection().crs(), None, 10).set({'synthesis': 1}),
       filtered_collection_A.filter(ee.Filter.eq('time_difference',
-          s1_ascending.aggregate_min('time_difference'))).first().set({'synthesis': 0})
+          filtered_collection_A.aggregate_min('time_difference'))).first().set({'synthesis': 0})
   )
 
   filtered_collection_D = s1_descending.filter(ee.Filter.eq('numNodata', 0))
   has_images_without_nodata_D = filtered_collection_D.size().eq(0)
   s1_descending = ee.Algorithms.If(
       has_images_without_nodata_D,
-      s1_descending.median().reproject(s1_descending.first().projection().crs(), None, 10).set({'synthesis': 1}),
+      s1_descending.median().reproject(s1_descending.first().select(0).projection().crs(), None, 10).set({'synthesis': 1}),
       filtered_collection_D.filter(ee.Filter.eq('time_difference',
-          s1_descending.aggregate_min('time_difference'))).first().set({'synthesis': 0})
+          filtered_collection_D.aggregate_min('time_difference'))).first().set({'synthesis': 0})
   )
 
   return ee.Image(s1_ascending),ee.Image(s1_descending) #,s1_col_copy
