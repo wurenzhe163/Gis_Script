@@ -153,17 +153,17 @@ class Adaptive_threshold(object):
         # 计算类内方差
         bss = indices.map(partial(calc_bss, sum_=sum_, mean_=mean_))
         # 排序选出最适阈值
+
         return means.sort(bss).get([-1])
 
     @staticmethod
-    def afn_histPeak(img, region=None):
+    def afn_histPeak(img, region=None,default_value=1):
         '''
         采用skimage计算双峰
         参考论文：An analysis of histogram-based thresholding algorithms
         The analysis of cell images
         '''
-        # img = img.unmask(-999)
-        img_numpy = geemap.ee_to_numpy(img, region=region)  # region必须是矩形
+        img_numpy = geemap.ee_to_numpy(img, region=region,default_value=default_value)  # region必须是矩形
         threshold = threshold_minimum(img_numpy)
         return threshold
 
@@ -185,14 +185,14 @@ class Reprocess(object):
     def image2vector(result, resultband=0, radius=10,GLarea=1., scale=10,FilterBound=None):
 
         # 图像学运算，避免噪点过多，矢量化失败
-        Closing_result = Open_close(result.select(resultband), radius = radius)
+        Closing_result = Reprocess.Open_close(result.select(resultband), radius = radius)
         # 分类图转为矢量并删除背景，添加select(0)会减少bug，不晓得为啥
         if GLarea > 20:
             Vectors = Closing_result.select(0).reduceToVectors(scale=scale*3, geometryType='polygon',
-                                                               eightConnected=True,bestEffort=True)
+                                                               eightConnected=True)
         else:
             Vectors = Closing_result.select(0).reduceToVectors(scale=scale, geometryType='polygon',
-                                                               eightConnected=True,bestEffort=True)
+                                                               eightConnected=True)
         Max_count = Vectors.aggregate_max('count')
         NoBackground_Vectors = Vectors.filterMetadata('count', 'not_equals', Max_count)
         # 提取分类结果,并合并为一个矢量
@@ -219,7 +219,7 @@ class save_parms(object):
             log.to_csv(logname, mode='w', index=False)
 
     @staticmethod
-    def write_pd(Union_ex, index, AOI_area,mode='gpd', Method='SNIC_Kmean', Band=[0, 1, 3], WithOrigin=0, pd_dict=None,
+    def write_pd(Union_ex, index, AOI_area,Img,mode='gpd', Method='SNIC_Kmean', Band=[0, 1, 3], WithOrigin=0, pd_dict=None,
                  Area_real=None, logname='log.csv', shapname='log.shp', calIoU=True):
         # 写入pandas
         Area_ = Union_ex.area().divide(ee.Number(1000 * 1000)).getInfo()
@@ -231,6 +231,7 @@ class save_parms(object):
         if mode == 'gpd':
             log = gpd.GeoDataFrame.from_features([Union_ex.getInfo()])
             log = log.assign(**{'Method': Method,
+                                'Image':Img,
                                 'Band': str(Band),
                                 'WithOrigin': WithOrigin,
                                 **pd_dict,
@@ -240,6 +241,7 @@ class save_parms(object):
                                 'index': index})
         else:
             log = pd.DataFrame({'Method': Method,
+                                'Image': Img,
                                 'Band': str(Band),
                                 'WithOrigin': WithOrigin,
                                 **pd_dict,
