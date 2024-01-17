@@ -7,8 +7,9 @@
     <list default="true" id="1646d052-6994-464e-8097-4d3c80871019" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/03_几何畸变校正/Basic_tools.py" beforeDir="false" afterPath="$PROJECT_DIR$/03_几何畸变校正/Basic_tools.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/03_几何畸变校正/Correct_filter.py" beforeDir="false" afterPath="$PROJECT_DIR$/03_几何畸变校正/Correct_filter.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/03_几何畸变校正/Extract_algorithm.py" beforeDir="false" afterPath="$PROJECT_DIR$/03_几何畸变校正/Extract_algorithm.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/03_几何畸变校正/升降轨数据融合NASADEM.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/03_几何畸变校正/升降轨数据融合NASADEM.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/03_几何畸变校正/New_Correct.py" beforeDir="false" afterPath="$PROJECT_DIR$/03_几何畸变校正/New_Correct.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../python-script/DeepLearning_pytorch/Backbone/M_Net.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/../python-script/DeepLearning_pytorch/Backbone/M_net_cascade.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/../python-script/DeepLearning_pytorch/Backbone/Only_M_Net.py" beforeDir="false" />
@@ -885,20 +886,20 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;last_opened_file_path&quot;: &quot;D:/Wrz/anaconda/envs/GEE/_conda.exe&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "last_opened_file_path": "D:/Wrz/batchlors_code/dataset_segmentation5-10",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="D:\09_Code\GEE_Script\03_几何畸变校正" />
@@ -933,7 +934,9 @@
       <workItem from="1693833560628" duration="2368000" />
       <workItem from="1693836329697" duration="474000" />
       <workItem from="1693836824307" duration="8529000" />
-      <workItem from="1694155347473" duration="9079000" />
+      <workItem from="1694155347473" duration="123857000" />
+      <workItem from="1694999828565" duration="17683000" />
+      <workItem from="1695604064144" duration="35000" />
     </task>
     <servers />
   </component>
