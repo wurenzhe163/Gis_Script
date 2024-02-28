@@ -7,7 +7,7 @@ import geemap
 import geopandas as gpd
 import pandas as pd
 from Basic_tools import Open_close,calculate_iou
-import os
+import os,sys
 
 class img_sharp(object):
     '''图像锐化'''
@@ -227,11 +227,13 @@ class Adaptive_threshold(object):
         csum_intensity = np.cumsum(intensity_sum)
         lower = csum_intensity[:-1] / csuml[:-1]
         higher = (csum_intensity[-1] - csum_intensity[:-1]) / csumh[:-1]
+        higher = (csum_intensity[-1] - csum_intensity[:-1]) / (csumh[:-1]+sys.float_info.min)
         all_mean = (lower + higher) / 2.0
         distances = all_mean - bin_centers[:-1]
         thresholds = bin_centers[:-1][(distances >= 0) & (distances < bin_width)]
         if len(thresholds) == 0:
             thresholds = bin_centers[:-1][distances >= 0][-1]
+            thresholds = [bin_centers[:-1][distances >= 0][-1]]
         if returnAll:
             return thresholds
         else:
@@ -252,7 +254,7 @@ class Reprocess(object):
         return Closing
 
     @staticmethod
-    def image2vector(result, resultband=0, radius=10,GLarea=1., scale=10,FilterBound=None):
+    def image2vector(result, resultband=0, radius=10,GLarea=1., scale=10,FilterBound=None, del_maxcount=False):
 
         # 图像学运算，避免噪点过多，矢量化失败
         Closing_result = Reprocess.Open_close(result.select(resultband), radius = radius)
@@ -263,10 +265,11 @@ class Reprocess(object):
         else:
             Vectors = Closing_result.select(0).reduceToVectors(scale=scale, geometryType='polygon',
                                                                eightConnected=True)
-        Max_count = Vectors.aggregate_max('count')
-        NoBackground_Vectors = Vectors.filterMetadata('count', 'not_equals', Max_count)
+        if del_maxcount:
+            Max_count = Vectors.aggregate_max('count')
+            Vectors = Vectors.filterMetadata('count', 'not_equals', Max_count)
         # 提取分类结果,并合并为一个矢量
-        Extract = NoBackground_Vectors.filterBounds(FilterBound)
+        Extract = Vectors.filterBounds(FilterBound)
         Union_ex = ee.Feature(Extract.union(1).first())
 
         return Union_ex
@@ -281,6 +284,9 @@ class save_parms(object):
             log.to_csv(logname, mode='a', index=False, header=0)
         else:
             log.to_csv(logname, mode='w', index=False)
+            log.drop('geometry',axis=1,inplace=False).to_csv(logname, mode='a', index=False, header=0)
+        else:
+            log.drop('geometry',axis=1,inplace=False).to_csv(logname, mode='w', index=False)
 
         if os.path.exists(shapname):
             if mode == 'gpd':
@@ -294,6 +300,7 @@ class save_parms(object):
     @staticmethod
     def write_pd(Union_ex, index, lake_geometry,Img,mode='gpd', Method='SNIC_Kmean', Band=[0, 1, 3], WithOrigin=0, pd_dict=None,
                  Area_real=None, logname='log.csv', shapname='log.shp', calIoU=False,cal_resultArea=False):
+                 Area_real=None, logname='log.csv', shapname='log.shp', calIoU=False,cal_resultArea=False,returnParms=False):
 
         if cal_resultArea:
             Area_ = Union_ex.area().divide(ee.Number(1000 * 1000)).getInfo()
@@ -328,3 +335,14 @@ class save_parms(object):
                                index=[index])
 
         save_parms.save_log(log, mode=mode, logname=logname, shapname=shapname)
+        if returnParms:
+            return {'Method': Method,
+                    'Image':Img,
+                    'Band': str(Band),
+                    'WithOrigin': WithOrigin,
+                    **pd_dict,
+                    'Area_pre': [Area_],
+                    'Area_real': [Area_real],
+                    'IoU': IoU,
+                    'index': index}
+        
