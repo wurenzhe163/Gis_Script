@@ -5,8 +5,9 @@ from scipy.signal import argrelextrema
 from tqdm import tqdm
 import sys
 
-
 EasyIndex = lambda Data, Index, *Keys: [Data[key][Index] for key in Keys]
+
+
 # 根据图像计算方位角，并
 def getASCCorners(image, AOI_buffer, orbitProperties_pass):
     # 真实方位角
@@ -61,14 +62,28 @@ def getASCCorners(image, AOI_buffer, orbitProperties_pass):
 
 
 # 将layover和shadow
-def rgbmask(image, layover, shadow):
+def rgbmask(image, **parms):
     r = ee.Image.constant(0).select([0], ['red'])
     g = ee.Image.constant(0).select([0], ['green'])
     b = ee.Image.constant(0).select([0], ['blue'])
 
-    r = r.where(layover, 255)
-    g = g.where(shadow, 255)
+    for key, value in parms.items():
+        lenName = value.bandNames().length().getInfo()
+        if lenName:
+            # print('lenName={}'.format(lenName))
+            if key == 'layover' or key == 'Llayover':
+                # print('r,key={}'.format(key))
+                r = r.where(value, 255)
+            if key == 'shadow':
+                # print('g,key={}'.format(key))
+                g = g.where(value, 255)
+            if key == 'Rlayover':
+                # print('b,key={}'.format(key))
+                b = b.where(value, 255)
+        else:
+            continue
     return ee.Image.cat([r, g, b]).byte().updateMask(image.mask())
+
 
 # 根据角度计算斜率
 def angle2slope(angle):
@@ -88,7 +103,9 @@ def angle2slope(angle):
         slop = -math.tan(arc)
     return slop
 
-def AuxiliaryLine2Point(cal_image, s1_azimuth_across,coordinates_dict, Auxiliarylines, scale):
+
+def AuxiliaryLine2Point(cal_image, s1_azimuth_across, coordinates_dict, Auxiliarylines, scale):
+    '''获取所有待计算的计算线'''
     # 计算斜率
     K = angle2slope(s1_azimuth_across)
     # 过Auxiliarylines中的点，从最小经度到最大经度
@@ -111,16 +128,17 @@ def AuxiliaryLine2Point(cal_image, s1_azimuth_across,coordinates_dict, Auxiliary
             [Min_Lon, Min_Lon_Y, Max_Lon, Max_lon_Y])))
     return Templist
 
+
 # 将图像像素数量与经纬度等匹配
 def Eq_pixels(x): return ee.Image.constant(0).where(x, x).updateMask(x.mask())
+
 
 # 将图像转为点数据表达
 def reduce_tolist(each, scale): return ee.Image(each).reduceRegion(
     reducer=ee.Reducer.toList(), geometry=each.geometry(), scale=scale, maxPixels=1e13)
 
-# 线性几何畸变校正
-def Line_Correct(cal_image,AOI,Templist, orbitProperties_pass, proj, scale:int,cal_image_scale:int):
 
+def Line_Correct_old(cal_image, AOI, Templist, orbitProperties_pass, proj, scale: int, cal_image_scale: int):
     line_points_list = []
     LPassive_layover_linList = []
     RPassive_layover_linList = []
@@ -145,7 +163,7 @@ def Line_Correct(cal_image,AOI,Templist, orbitProperties_pass, proj, scale:int,c
             order = np.argsort(PointDict['x'])[::-1]
         PointDict = {k: np.array(v)[order] for k, v in PointDict.items()}
         PointDict['x'], PointDict['y'] = PointDict['x'] * \
-                                  cal_image_scale, PointDict['y'] * cal_image_scale  # 像素行列10m分辨率，由proj得
+                                         cal_image_scale, PointDict['y'] * cal_image_scale  # 像素行列10m分辨率，由proj得
 
         # 寻找入射线上DEM的极大值点，Asending左侧可能出现layover，右侧可能出现shadow。  Decending反之
 
@@ -182,12 +200,6 @@ def Line_Correct(cal_image,AOI,Templist, orbitProperties_pass, proj, scale:int,c
                 (rh - L_h) / np.sqrt(np.square(L_x - rx) + np.square(L_y - ry)))
             Llay_angle = Llay_angle_iRad * 180 / math.pi
             index_Llay = np.where(Llay_angle > r_angle)[0]
-            if len(index_Llay) != 0 and len(
-                    np.where(PointDict['layover'][[rangeIndex[index_Llay[i]] for i in range(len(index_Llay))]] == 1)[
-                        0]) != 0:
-                start_index_local = \
-                np.where(PointDict['layover'][[rangeIndex[index_Llay[i]] for i in range(len(index_Llay))]] == 1)[0][0]
-                index_Llay = index_Llay[:start_index_local]
 
             if len(index_Llay) != 0:
                 tlon_Llay = L_lon[index_Llay]
@@ -201,9 +213,9 @@ def Line_Correct(cal_image,AOI,Templist, orbitProperties_pass, proj, scale:int,c
 
             # 阴影
             if index_max[each] + 50 < len(PointDict['x']):
-                rangeIndex = range(index_max[each]+1, index_max[each] + 50)
+                rangeIndex = range(index_max[each] + 1, index_max[each] + 50)
             else:
-                rangeIndex = range(index_max[each]+1, len(PointDict['x']))
+                rangeIndex = range(index_max[each] + 1, len(PointDict['x']))
 
             R_h, R_x, R_y, R_lon, R_lat = EasyIndex(
                 PointDict, rangeIndex, 'height', 'x', 'y', 'longitude', 'latitude')
@@ -258,13 +270,211 @@ def Line_Correct(cal_image,AOI,Templist, orbitProperties_pass, proj, scale:int,c
 
     return LeftLayover.toInt8(), RightLayover.toInt8(), Shadow.toInt8()
 
-# 被动几何畸变识别（方法2）
-def Line_Correct_test2(cal_image,AOI_buffer,Templist, orbitProperties_pass, proj, scale:int):
-    line_points_list = []
-    # LPassive_layover_linList = []
-    # RPassive_layover_linList = []
-    # Shadow_linList = []
 
+# 线性几何畸变校正
+def Line_Correct(cal_image, AOI, Templist, orbitProperties_pass, proj, scale: int, cal_image_scale: int,
+                 filt_distance=False, save_peak=False, line_points_connect=False, Peak_Llay=False, Peak_shdow=False,
+                 Peak_Rlay=False):
+
+    line_points_list = []
+    LPassive_layover_linList = []
+    RPassive_layover_linList = []
+    Shadow_linList = []
+    PeakPoint_list = []
+
+    for eachLine in tqdm(Templist):
+        # 求与辅助线相交的像素值
+        LineImg = cal_image.select(
+            ['height', 'layover', 'shadow', 'incAngle', 'alpha_sRad', 'x', 'y', 'longitude', 'latitude']).clip(eachLine)
+        # 转为Dictionary
+        ptsDict = LineImg.reduceRegion(
+            reducer=ee.Reducer.toList(),
+            geometry=cal_image.geometry(),
+            scale=scale,
+            maxPixels=1e13)
+        if filt_distance:
+            # 抽取经纬度，转点
+            lons = ee.List(ptsDict.get('longitude'))
+            lats = ee.List(ptsDict.get('latitude'))
+            Point_list = ee.FeatureCollection(lons.zip(lats).map(lambda xy: ee.Feature(ee.Geometry.Point(xy))))
+
+            # 计算到eachLine的距离
+            Point_list = Point_list.map(lambda f: f.set('dis', eachLine.geometry().distance(f.geometry())))
+            distances = ee.List(Point_list.reduceColumns(ee.Reducer.toList(), ['dis']).get('list'))
+
+            # 过滤 Distance 列表小于 10 的元素
+            filteredDistances = ee.List(distances.filter(ee.Filter.lt('item', 30)))
+
+            # 计算索引，选择索引
+            Index_filter = filteredDistances.map(lambda x: distances.indexOf(x))
+            ptsDict = ptsDict.map(lambda k, v: Index_filter.map(lambda x: ee.List(v).get(x))).set('Distance',
+                                                                                                  filteredDistances)
+        line_points_list.append(ptsDict)
+
+    list_of_dicts = ee.List(line_points_list).getInfo()  # 需转换数据到本地，严重耗时
+    print('line_points_list元素数量={}'.format(sum([len(list_of_dicts[i]['longitude']) for i in range(len(list_of_dicts))])))
+
+    for PointDict in tqdm(list_of_dicts):
+        if orbitProperties_pass == 'ASCENDING':
+            order = np.argsort(PointDict['longitude'])
+        elif orbitProperties_pass == 'DESCENDING':
+            order = np.argsort(PointDict['longitude'])[::-1]
+
+        PointDict = {k: np.array(v)[order] for k, v in PointDict.items()}
+        PointDict['x'], PointDict['y'] = PointDict['x'] * cal_image_scale, PointDict[
+            'y'] * cal_image_scale  # 像素行列10m分辨率，由proj得
+
+        # 寻找入射线上DEM的极大值点
+        index_max = argrelextrema(PointDict['height'], np.greater)[0]
+        if len(index_max) != 0:
+            Angle_max, Z_max, X_max, Y_max, Lon_max, Lat_max = EasyIndex(
+                PointDict, index_max, 'incAngle', 'height', 'x', 'y', 'longitude', 'latitude')
+
+            if save_peak:
+                # 保存 DEM极值点
+                for x, y in zip(Lon_max, Lat_max):
+                    print('len={}'.format(len(Lon_max)))
+                    PeakPoint_list.append(ee.Feature(ee.Geometry.Point(x, y), {'values': 1}))
+                # if 'PeakFeatureCollection' in locals():
+                #     PeakFeatureCollection = PeakFeatureCollection.merge(ee.FeatureCollection([ee.Feature(
+                #         ee.Geometry.Point(x, y), {'values': 1}) for x, y in zip(Lon_max, Lat_max)]))
+                # else:
+                #     PeakFeatureCollection = ee.FeatureCollection([ee.Feature(
+                #         ee.Geometry.Point(x, y), {'values': 1}) for x, y in zip(Lon_max, Lat_max)])
+
+            # --------检索出一条线上所有Peak点的畸变
+            LPassive_layover = []
+            RPassive_layover = []
+            Passive_shadow = []
+
+            for each in range(len(index_max)):
+
+                rx = X_max[each]
+                ry = Y_max[each]
+                rh = Z_max[each]
+                rlon = Lon_max[each]
+                rlat = Lat_max[each]
+                rindex = index_max[each]
+                r_angle = Angle_max[each]
+
+                Pixels_cal = 900 // scale
+
+                # 被动叠掩（仅山底）
+                if index_max[each] - Pixels_cal > 0:
+                    rangeIndex = range(rindex - Pixels_cal, rindex)
+                else:
+                    rangeIndex = range(0, rindex)
+
+                ## 计算坡度梯度会少一位，因此在第一位进行补‍0，保持元素数量一致
+                PointDict['Grad_alpha_sRad'] = np.insert(np.diff(PointDict['alpha_sRad']), 0, 0)
+                L_h, L_x, L_y, L_lon, L_lat, L_angle, L_Grad_alpha_sRad = EasyIndex(
+                    PointDict, rangeIndex, 'height', 'x', 'y', 'longitude', 'latitude', 'incAngle', 'Grad_alpha_sRad')
+
+                Llay_angle_iRad = np.arctan((rh - L_h) / np.sqrt(np.square(L_x - rx) + np.square(L_y - ry)))
+                Llay_angle = Llay_angle_iRad * 180 / math.pi
+
+                index_Llay = np.where(Llay_angle > r_angle)[0]
+
+                if len(index_Llay) != 0:
+                    if line_points_connect:
+                        index_Llay = range(np.where(Llay_angle > r_angle)[0][0], len(Llay_angle))
+                    tlon_Llay = L_lon[index_Llay]
+                    tlat_Llay = L_lat[index_Llay]
+                    if Peak_Llay:
+                        tlon_Llay = np.append(tlon_Llay, rlon)
+                        tlat_Llay = np.append(tlat_Llay, rlat)
+
+                    LlayFeatureCollection = ee.FeatureCollection([ee.Feature(
+                        ee.Geometry.Point(x, y), {'values': 1}) for x, y in zip(tlon_Llay, tlat_Llay)])
+                    # 将属性值映射到图像上并设置默认值
+                    LPassive_layover.append(
+                        LlayFeatureCollection.reduceToImage(['values'], 'mean'))
+                    # image_with_values = image_with_values.paint(TempFeatureCollection,'values')
+
+                # 阴影
+                if index_max[each] + Pixels_cal < len(PointDict['x']):
+                    rangeIndex = range(index_max[each] + 1, index_max[each] + Pixels_cal)
+                else:
+                    rangeIndex = range(index_max[each] + 1, len(PointDict['x']))
+
+                R_h, R_x, R_y, R_lon, R_lat = EasyIndex(
+                    PointDict, rangeIndex, 'height', 'x', 'y', 'longitude', 'latitude')
+                R_angle_iRad = np.arctan(
+                    (rh - R_h) / np.sqrt(np.square(R_x - rx) + np.square(R_y - ry)) + sys.float_info.min)
+                R_angle = R_angle_iRad * 180 / math.pi
+                index_Shadow = np.where(R_angle > (90 - r_angle))[0]
+
+                if len(index_Shadow) != 0:
+                    if line_points_connect:
+                        index_Shadow = range(0, np.where(R_angle > (90 - r_angle))[0][-1])
+                    tlon_Shadow = R_lon[index_Shadow]
+                    tlat_Shadow = R_lat[index_Shadow]
+                    if Peak_shdow:
+                        tlon_Shadow = np.append(tlon_Shadow, rlon)
+                        tlat_Shadow = np.append(tlat_Shadow, rlat)
+                    ShadowFeatureCollection = ee.FeatureCollection([ee.Feature(ee.Geometry.Point(
+                        x, y), {'values': 1}) for x, y in zip(tlon_Shadow, tlat_Shadow)])
+                    Passive_shadow.append(
+                        ShadowFeatureCollection.reduceToImage(['values'], 'mean'))
+
+                if len(index_Llay) != 0:
+                    # 被动叠掩(山顶右侧),与阴影运算交叉
+                    # 求取在左侧叠掩范围内变化最大值点,在index_Llay范围内求最大坡度变化值
+                    try:
+                        L_bottom = index_Llay[np.argmax(L_Grad_alpha_sRad[index_Llay])]
+                        # layoverM_x, layoverM_y = L_x[L_bottom], L_y[L_bottom],  # ,L_lon[L_bottom], L_lat[L_bottom]
+                        layoverM_x, layoverM_y = rx, ry
+                        layoverM_h = L_h[L_bottom]  # np.min(L_h[index_Llay])
+                        layoverM_angle = r_angle
+                    except:
+                        raise IndexError('索引问题each={}'.format(each))
+
+                    Rlay_angle_iRad = np.arctan(
+                        (R_h - layoverM_h) / np.sqrt(np.square(R_x - layoverM_x) + np.square(R_y - layoverM_y)))
+                    Rlay_angle = Rlay_angle_iRad * 180 / math.pi
+                    index_Rlayover = np.where(Rlay_angle > layoverM_angle)[0]
+
+                    if len(index_Rlayover) != 0:
+                        if line_points_connect:
+                            index_Rlayover = range(0, np.where(Rlay_angle > layoverM_angle)[0][-1])
+
+                        tlon_RLay = R_lon[index_Rlayover]
+                        tlat_RLay = R_lat[index_Rlayover]
+                        if Peak_Rlay:
+                            tlon_RLay = np.append(tlon_RLay, rlon)
+                            tlat_RLay = np.append(tlat_RLay, rlat)
+
+                        RLayFeatureCollection = ee.FeatureCollection([ee.Feature(
+                            ee.Geometry.Point(x, y), {'values': 1}) for x, y in zip(tlon_RLay, tlat_RLay)])
+                        RPassive_layover.append(
+                            RLayFeatureCollection.reduceToImage(['values'], 'mean'))
+
+                if len(LPassive_layover) != 0:
+                    aggregated_image = ee.ImageCollection(
+                        LPassive_layover).mosaic().reproject(crs=proj, scale=scale)
+                    LPassive_layover_linList.append(aggregated_image)
+
+                if len(RPassive_layover) != 0:
+                    aggregated_image = ee.ImageCollection(
+                        RPassive_layover).mosaic().reproject(crs=proj, scale=scale)
+                    RPassive_layover_linList.append(aggregated_image)
+
+                if len(Passive_shadow) != 0:
+                    aggregated_image = ee.ImageCollection(
+                        Passive_shadow).mosaic().reproject(crs=proj, scale=scale)
+                    Shadow_linList.append(aggregated_image)
+
+    LeftLayover = ee.ImageCollection(LPassive_layover_linList).mosaic().reproject(crs=proj, scale=scale).clip(AOI)
+    RightLayover = ee.ImageCollection(RPassive_layover_linList).mosaic().reproject(crs=proj, scale=scale).clip(AOI)
+    Shadow = ee.ImageCollection(Shadow_linList).mosaic().reproject(crs=proj, scale=scale).clip(AOI)
+    if save_peak:
+        return LeftLayover.toInt8(), RightLayover.toInt8(), Shadow.toInt8(), PeakPoint_list
+    else:
+        return LeftLayover.toInt8(), RightLayover.toInt8(), Shadow.toInt8()
+
+# 被动几何畸变识别（方法2）
+def Line_Correct2(cal_image, AOI_buffer, Templist, orbitProperties_pass, proj, scale: int, cal_image_scale: int):
+    line_points_list = []
     for eachLine in tqdm(Templist):
         # 求与辅助线相交的像素值,求取极值点位置
         LineImg = cal_image.select(
@@ -272,7 +482,7 @@ def Line_Correct_test2(cal_image,AOI_buffer,Templist, orbitProperties_pass, proj
         LineImg_point = LineImg.reduceRegion(
             reducer=ee.Reducer.toList(),
             geometry=cal_image.geometry(),
-            scale=30,
+            scale=scale,
             maxPixels=1e13)
         line_points_list.append(LineImg_point)
     list_of_dicts = ee.List(line_points_list).getInfo()  # 需转换数据到本地，严重耗时
@@ -291,7 +501,7 @@ def Line_Correct_test2(cal_image,AOI_buffer,Templist, orbitProperties_pass, proj
             order = np.argsort(PointDict['x'])[::-1]
         PointDict = {k: np.array(v)[order] for k, v in PointDict.items()}  # 将视线上的像元按照x，从小到大排序
         PointDict['x'], PointDict['y'] = PointDict['x'] * \
-                                         10, PointDict['y'] * 10  # 像素行列10m分辨率，由proj得
+                                         cal_image_scale, PointDict['y'] * cal_image_scale  # 像素行列10m分辨率，由proj得
         EasyIndex = lambda Data, Index, *Keys: [Data[key][Index] for key in Keys]
         # 被动阴影像元识别
         if len(np.where(PointDict['shadow'] == 1)[0]) != 0:
@@ -309,6 +519,7 @@ def Line_Correct_test2(cal_image,AOI_buffer,Templist, orbitProperties_pass, proj
             # 以主动阴影的起始像元位置为参考点
             sh_h, sh_x, s_y, sh_lon, sh_lat, sh_angle = EasyIndex(
                 PointDict, shadow_start_index, 'height', 'x', 'y', 'longitude', 'latitude', 'incAngle')
+
             # 在某一视线中，逐段主动阴影进行分析
             if len(shadow_start_index) != 0:
                 for i in range(shadow_start_index.size):
@@ -414,5 +625,6 @@ def Line_Correct_test2(cal_image,AOI_buffer,Templist, orbitProperties_pass, proj
     img_rlayover = image_rlayover.clip(AOI_buffer).reproject(crs=proj, scale=scale)
     img_llayover = image_llayover.clip(AOI_buffer).reproject(crs=proj, scale=scale)
     img_shadow = image_shadow.clip(AOI_buffer).reproject(crs=proj, scale=scale)
-    passive_img = ee.ImageCollection([img_rlayover, img_llayover, img_shadow]).mosaic()
-    return passive_img
+    # passive_img = ee.ImageCollection([img_rlayover, img_llayover, img_shadow]).mosaic()
+    return img_rlayover.toInt8(), img_llayover.toInt8(), img_shadow.toInt8()
+
