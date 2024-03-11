@@ -2,8 +2,9 @@
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$" />
+    <content url="file://$MODULE_DIR$/../python-script/img_byme/PackageDeepLearn" />
     <content url="file://$MODULE_DIR$/../../BaiduSyncdisk/02_论文相关/在写/几何畸变/Code" />
-    <orderEntry type="jdk" jdkName="D:\Code_base\anaconda\envs\GEE" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="D:\Code_base\anaconda\envs\s1s2cloud_rm" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PyDocumentationSettings">
