@@ -13,6 +13,33 @@ def get_minmax(Image: ee.Image, scale: int = 10):
     Obj = Image.reduceRegion(reducer=ee.Reducer.minMax(), geometry=Image.geometry(), scale=scale, bestEffort=True)
     return Obj.rename(**{'from': Obj.keys(), 'to': ['max', 'min']})
 
+def minmax_norm(Image: ee.Image, Bands, region, scale: int = 10, withbound=False):
+    # proj = Image.projection()
+    for i, eachName in enumerate(Bands):
+        cal_band = Image.select(eachName)
+        if withbound:
+            histogram = get_histogram(Image, region, scale, histNum=1000).getInfo()
+            bin_centers, counts = (np.array(histogram['bucketMeans']), np.array(histogram['histogram']))
+            HistBound = Cal_HistBoundary(counts, y=100)
+            Min = bin_centers[HistBound['indexFront']]
+            Max = bin_centers[HistBound['indexBack']]
+            Image = Image.where(Image.lt(Min), Min)
+            Image = Image.where(Image.gt(Max), Max)
+
+            nominator = cal_band.subtract(ee.Number(Min))
+            denominator = ee.Number(Max).subtract(ee.Number(Min))
+        else:
+            minmax = get_minmax(cal_band, scale=scale)
+            nominator = cal_band.subtract(ee.Number(minmax.get('min')))
+            denominator = ee.Number(minmax.get('max')).subtract(ee.Number(minmax.get('min')))
+
+        if i == 0:
+            result = nominator.divide(denominator)  # .reproject(proj)
+        else:
+            result = result.addBands(nominator.divide(denominator))  # .reproject(proj)
+
+    return result
+
 # 归一化
 def normalize_by_minmax(img, scale=10):
     '''
@@ -122,6 +149,35 @@ def time_difference(col, middle_date,timeCol='system:time_start',time='days'):
 
 # 根据角度计算斜率
 def angle2slope(angle):
+    # 判断角度所在的范围并计算斜率
+    def compute_slope(ang):
+        # 将角度调整为特定范围内的有效值
+        adjusted_angle = ee.Number(ee.Algorithms.If(ang.gt(180), ee.Number(90).subtract(ang.subtract(180)), ang))
+        adjusted_angle = ee.Number(ee.Algorithms.If(ang.gt(90).And(ang.lte(180)), ang.subtract(90), adjusted_angle))
+        adjusted_angle = ee.Number(ee.Algorithms.If(ang.gt(270).And(ang.lte(360)), ang.subtract(270), adjusted_angle))
+        
+        # 转换角度为弧度
+        radians = adjusted_angle.multiply(ee.Number(math.pi / 180))
+        
+        # 计算斜率
+        slope = radians.tan()
+        
+        # 根据角度范围调整斜率的符号
+        slope = ee.Number(ee.Algorithms.If(ang.gt(90).And(ang.lte(180)), slope.multiply(-1), slope))
+        slope = ee.Number(ee.Algorithms.If(ang.gt(270).And(ang.lte(360)), slope.multiply(-1), slope))
+        
+        return slope
+
+    # 检查angle是否为ee.Number类型
+    if isinstance(angle, ee.ee_number.Number):
+        # 直接计算斜率
+        return compute_slope(angle)
+    else:
+        # 如果不是ee.Number，假设它是可直接处理的数值
+        angle = ee.Number(angle)
+        return compute_slope(angle)
+    
+def angle2slope_numpy(angle):
     if type(angle) == ee.ee_number.Number:
         angle = angle.getInfo()
     if 0 < angle <= 90 or 180 < angle <= 270:

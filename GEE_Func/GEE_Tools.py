@@ -105,3 +105,8 @@ def AssignVariablesKwargs(**kwargs):
     for var_name, value in kwargs.items():
         # 直接处理值，不需要使用eval，因为值已经是正确的Python数据类型
         globals()[var_name] = value
+        
+        
+# 从ee.ImageCollection中任意选取ee
+def Select_imageNum(ImageCollection: ee.ImageCollection, i):
+    return ee.Image(ImageCollection.toList(ImageCollection.size()).get(i))

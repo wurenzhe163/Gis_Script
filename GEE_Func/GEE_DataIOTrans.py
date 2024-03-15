@@ -1,11 +1,9 @@
 import ee,os,math
 import numpy as np
 import geemap
-from functools import partial
 from tqdm import trange
 from PackageDeepLearn.utils.Statistical_Methods import Cal_HistBoundary
-from GEEMath import get_histogram,get_minmax,get_meanStd,time_difference
-from GEE_CorreterAndFilters import ImageFilter
+from GEEMath import get_histogram,get_minmax,get_meanStd
 from GEEMath import calculate_iou
 import pandas as pd
 import geopandas as gpd
@@ -153,23 +151,27 @@ class BandTrans(object):
         ds = None
 
     # 将layover和shadow转为RGB
-    def add_DistorRgbmask(image,clomnNames=[['layover','Llayover'],['shadow'],['Rlayover']] ,**parms):
+    @staticmethod
+    def add_DistorRgbmask(image, columnNames=[['layover', 'Llayover'], ['shadow'], ['Rlayover']], **parms):
         # 新建波段
-        r = ee.Image.constant(0).select([0], ['red'])
-        g = ee.Image.constant(0).select([0], ['green'])
-        b = ee.Image.constant(0).select([0], ['blue'])
+        r = ee.Image.constant(0).rename(['red'])
+        g = ee.Image.constant(0).rename(['green'])
+        b = ee.Image.constant(0).rename(['blue'])
 
-        for key, value  in parms.items():
-            lenName = value.bandNames().length().getInfo()
-            if lenName:
-                if key in clomnNames[0]:
-                    r = r.where(value, 128)
-                if key in clomnNames[1]:
-                    g = g.where(value, 128)
-                if key in clomnNames[2]:
-                    b = b.where(value, 128)
-            else:
-                continue
+        # 定义一个条件函数来更新RGB图层
+        def update_band(band, condition, value):
+            return ee.Image(ee.Algorithms.If(condition, band.where(value, 128), band))
+
+        # 遍历参数并根据条件更新波段
+        for key, value in parms.items():
+            condition = value.bandNames().length().gt(0)
+
+            # 使用服务器端条件判断而不是客户端getInfo
+            r = update_band(r, condition.And(ee.List(columnNames[0]).contains(key)), value)
+            g = update_band(g, condition.And(ee.List(columnNames[1]).contains(key)), value)
+            b = update_band(b, condition.And(ee.List(columnNames[2]).contains(key)), value)
+
+        # 合并波段并更新掩码
         return ee.Image.cat([r, g, b]).byte().updateMask(image.mask())
 
 class Vector_process(object):
@@ -280,8 +282,6 @@ class DataIO(object):
     def ImageFromCollection(ImageCollection: ee.ImageCollection, i):
         return ee.Image(ImageCollection.toList(ImageCollection.size()).get(i))
 
-
-
     try:
         import rasterio as rio
         from rasterio.warp import calculate_default_transform
@@ -298,64 +298,8 @@ class DataIO(object):
     except:
         print('rasterio not import')
 
-    # ---------------------------------S1几何畸变检测、冰湖提取专用
-    @staticmethod
-    def load_S1collection(aoi, start_date, end_date, middle_date,
-                          Filter=None, FilterSize=30):
-        '''s1数据加载'''
-        s1_col = (ee.ImageCollection("COPERNICUS/S1_GRD")
-                  .filter(ee.Filter.eq('instrumentMode', 'IW'))
-                  .filterBounds(aoi)
-                  .filterDate(start_date, end_date))
-
-        # 裁剪并计算空洞数量
-        s1_col = s1_col.map(partial(DataTrans.rm_nodata, AOI=aoi))
-
-        # 图像滤波，可选
-        if Filter:
-            print('Begin Filter ...')
-            if Filter == 'leesigma':
-                s1_col = s1_col.map(ImageFilter.leesigma(FilterSize))
-            elif Filter == 'RefinedLee':
-                s1_col = s1_col.map(ImageFilter.RefinedLee)
-            elif Filter == 'gammamap':
-                s1_col = s1_col.map(ImageFilter.gammamap(FilterSize))
-            elif Filter == 'boxcar':
-                s1_col = s1_col.map(ImageFilter.boxcar(FilterSize))
-            else:
-                print('Wrong Filter')
-        else:
-            print('Without Filter')
-
-        # 计算与目标日期的差距
-        s1_col = s1_col.map(partial(time_difference, middle_date=middle_date))
-
-        # 分离升降轨
-        s1_descending = s1_col.filter(ee.Filter.eq('orbitProperties_pass', 'DESCENDING'))
-        s1_ascending = s1_col.filter(ee.Filter.eq('orbitProperties_pass', 'ASCENDING'))
-
-        # 判断是否存在没有缺失值的图像,存在则筛选这些没有缺失值的图像，否则将这些图像合成为一张图像
-        # 寻找与时间最接近的图像设置'synthesis': 0，否则'synthesis': 1
-        filtered_collection_A = s1_ascending.filter(ee.Filter.eq('numNodata', 0))
-        has_images_without_nodata_A = filtered_collection_A.size().eq(0)
-
-        s1_ascending = ee.Algorithms.If(
-            has_images_without_nodata_A,
-            s1_ascending.median().reproject(s1_ascending.first().select(0).projection().crs(), None, 10).set({'synthesis': 1}),
-            filtered_collection_A.filter(ee.Filter.eq('time_difference',filtered_collection_A.aggregate_min('time_difference'))).first().set({'synthesis': 0})
-                                        )
-
-        filtered_collection_D = s1_descending.filter(ee.Filter.eq('numNodata', 0))
-        has_images_without_nodata_D = filtered_collection_D.size().eq(0)
-        s1_descending = ee.Algorithms.If(
-            has_images_without_nodata_D,
-            s1_descending.median().reproject(s1_descending.first().select(0).projection().crs(), None, 10).set({'synthesis': 1}),
-            filtered_collection_D.filter(ee.Filter.eq('time_difference',filtered_collection_D.aggregate_min('time_difference'))).first().set({'synthesis': 0})
-                                         )
-        return ee.Image(s1_ascending), ee.Image(s1_descending)  # ,s1_col_copy
-
-
 class save_parms(object):
+    
     @staticmethod
     def save_log(log, mode='gpd', crs='EPSG:4326', logname='log.csv', shapname='log.shp'):
         '''
