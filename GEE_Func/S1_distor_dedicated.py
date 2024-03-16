@@ -263,6 +263,7 @@ class DEM_caculator(object):
             gamma0 = sigma0Pow.divide(theta_iRad.cos())
             gamma0dB = ee.Image.constant(10).multiply(gamma0.log10()).select(['VV', 'VH'],
                                                                              ['VV_gamma0', 'VH_gamma0'])  # 根据角度修订入射值
+            
             # 判断几何畸变
             if DistorMethed == 'RS':
                 # ------------------------------RS几何畸变区域--------------------------------- 同戴可人：高山峡谷区滑坡灾害隐患InSAR早期识别

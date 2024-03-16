@@ -313,7 +313,6 @@ class ImageFilter(object):
         '''
         return partial(ImageFilter.leesigma_wrap, KERNEL_SIZE=KERNEL_SIZE)
     
-    
     #-----------------------------------适用于所有图像
     @staticmethod
     def Open_close(img, radius=10):
