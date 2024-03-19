@@ -5,7 +5,7 @@ import pandas as pd
 from scipy.signal import argrelextrema
 
 # 读取CSV文件中的散点数据
-pdcsv = pd.read_json(r"D:\09_Code\Gis_Script\04_修正几何畸变矫正与冰湖提取\A.json")
+pdcsv = pd.read_json(r"C:\09_Code\Gis_Script\04_修正几何畸变矫正与冰湖提取\A.json")
 
 # 提取散点数据
 x_data = pdcsv.index
@@ -28,7 +28,7 @@ zero_first_derivative_indices = np.where(np.diff(np.sign(first_derivative)) != 0
 zero_second_derivative_indices = np.where(np.diff(np.sign(second_derivative)) != 0)[0] + 1
 zero_third_derivative_indices = np.where(np.diff(np.sign(third_derivative)) != 0)[0] + 1
 
-# 找到n阶导数大于0的位置
+# 找到n阶导数满足要求的位置
 positive_first_derivative_indices = np.where(first_derivative >= 0)[0]
 positive_second_derivative_indices = np.where(second_derivative <= 0)[0]
 positive_third_derivative_indices = np.where(third_derivative >= 0)[0]
