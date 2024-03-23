@@ -334,7 +334,38 @@ class S1_CalDistor(object):
     def reduce_tolist(each, scale):
         return ee.Image(each).reduceRegion(
             reducer=ee.Reducer.toList(), geometry=each.geometry(), scale=scale, maxPixels=1e13)
-    
+            
+    def Line2Points(feature,region,scale=30):
+        # 从Feature中提取线几何对象
+        line_geometry = ee.Feature(feature).geometry().intersection(region)
+        
+        # 获取线的所有坐标点
+        coordinates = line_geometry.coordinates()
+        start_point = ee.List(coordinates.get(0)) # 起点坐标
+        end_point = ee.List(coordinates.get(-1))  # 终点坐标
+        
+        # 获取线段的总长度
+        length = line_geometry.length()
+
+        # 计算插入点的数量
+        num_points = length.divide(scale).subtract(1).floor()
+
+        # 计算每个间隔点的坐标
+        def interpolate(i):
+            i = ee.Number(i)
+            fraction = i.divide(num_points)
+            interpolated_lon = ee.Number(start_point.get(0)).add(
+                ee.Number(end_point.get(0)).subtract(ee.Number(start_point.get(0))).multiply(fraction))
+            interpolated_lat = ee.Number(start_point.get(1)).add(
+                ee.Number(end_point.get(1)).subtract(ee.Number(start_point.get(1))).multiply(fraction))
+            return ee.Feature(ee.Geometry.Point([interpolated_lon, interpolated_lat]))
+
+        # 使用条件表达式过滤长度为0的线段
+        filtered_points = ee.FeatureCollection(ee.Algorithms.If(num_points.gt(0), 
+                                                                ee.FeatureCollection(ee.List.sequence(1, num_points).map(interpolate)),
+                                                                ee.FeatureCollection([])))
+
+        return filtered_points
     def AuxiliaryLine2Point_numpy(cal_image, s1_azimuth_across, coordinates_dict, Auxiliarylines, scale):
         '''获取所有待计算的计算线,线是矢量'''
         # 计算斜率
@@ -360,9 +391,9 @@ class S1_CalDistor(object):
                 [Min_Lon, Min_Lon_Y, Max_Lon, Max_lon_Y])))
         return Templist
     
-    def AuxiliaryLine2Point(cal_image, s1_azimuth_across, coordinates_dict, Auxiliarylines, scale):
-        '''获取所有待计算的计算线,线是矢量，全在GEE服务器端处理'''
-
+    def AuxiliaryLine2Point_old(cal_image, s1_azimuth_across, coordinates_dict, Auxiliarylines, scale):
+        '''获取所有待计算的计算线,线是矢量，全在GEE服务器端处理
+        由于采用图像处理，出现了一些由于像素偏移导致的误差'''
         # 直接将角度转换为斜率，这里假设angle2slope函数返回的是ee.Number类型
         K = angle2slope(s1_azimuth_across) 
         
@@ -391,6 +422,38 @@ class S1_CalDistor(object):
 
         return lines
     
+    def AuxiliaryLine2Point(s1_azimuth_across, coordinates_dict, Auxiliarylines, region,scale):
+        '''获取所有待计算的计算线,线是矢量，全在GEE服务器端处理'''
+
+        # 直接将角度转换为斜率，这里假设angle2slope函数返回的是ee.Number类型
+        K = angle2slope(s1_azimuth_across) 
+        
+        Max_Lon = coordinates_dict['maxLon']
+        Min_Lon = coordinates_dict['minLon']
+
+        # 使用map函数代替循环处理辅助线上的所有点数据
+        def create_line(coords):
+            lon = ee.Number(coords.get(0))
+            lat = ee.Number(coords.get(1))
+            C = lat.subtract(K.multiply(lon))
+            Min_Lon_Y = K.multiply(Min_Lon).add(C)
+            Max_Lon_Y = K.multiply(Max_Lon).add(C)
+            line = ee.Geometry.LineString([[Min_Lon, Min_Lon_Y], [Max_Lon, Max_Lon_Y]])
+            return ee.Feature(line)
+        
+        # 将图像裁剪到辅助线范围并降采样为点集
+        points = S1_CalDistor.Line2Points(Auxiliarylines,region,scale=scale)
+        
+        list_of_dicts = points.geometry().coordinates()
+        lon_list = list_of_dicts.map(lambda x: ee.List(x).get(0))
+        lat_list = list_of_dicts.map(lambda x: ee.List(x).get(1))
+
+        # Zip the lists and map the function over the zipped list
+        coords_list = lon_list.zip(lat_list)
+        lines = coords_list.map(lambda coords: create_line(ee.List(coords)))
+
+        return lines
+
     # 线性几何畸变校正
     def Line_Correct(cal_image, AOI_buffer, Templist, orbitProperties_pass, proj, scale: int, cal_image_scale: int,
                      filt_distance=False, save_peak=False, line_points_connect=False, Peak_Llay=False, Peak_shdow=False,
