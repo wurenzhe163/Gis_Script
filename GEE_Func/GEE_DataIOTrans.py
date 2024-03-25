@@ -248,33 +248,28 @@ class DataIO(object):
         image : ee.Image
         vector : ee.FeatureCollection
         '''
-        inputType= type(input)
-        if inputType in ['ee.ImageCollection','ee.Image','ee.FeatureCollection','ee.Feature']:
-            print('Input type is {}'.format(inputType))
-        else: print('Input type is not supported, should be ee.ImageCollection, ee.Image, ee.FeatureCollection, ee.Feature')
 
-        if inputType == 'ee.ImageCollection':
+        if isinstance(input, ee.ImageCollection):
             # 这里导出时候使用region设置AOI，否则可能因为坐标系问题(未确定)，出现黑边问题,AOI需要为长方形
             geemap.ee_export_image_collection(input,
-                                              out_dir=os.path.dirname(fileDirname),
-                                              format="ZIPPED_GEO_TIFF", region=region, scale=scale)
-        elif inputType == 'ee.Image':
+                                                out_dir=os.path.dirname(fileDirname),
+                                                format="ZIPPED_GEO_TIFF", region=region, scale=scale)
+        elif isinstance(input, ee.Image):
             if os.path.exists(fileDirname):
                 print('File already exists:{}'.format(fileDirname));pass
             else:
                 geemap.ee_export_image(input,
-                                       filename=fileDirname,
-                                       scale=scale, region=region, file_per_band=False, timeout=300)
+                                        filename=fileDirname,
+                                        scale=scale, region=region, file_per_band=False, timeout=300)
                 if rename_image:
                     print('change image bandNames')
                     BandTrans.rename_band(fileDirname, new_names=input.bandNames().getInfo(), rewrite=True)
-        elif (inputType == 'ee.FeatureCollection') or (inputType == 'ee.Feature'):
+        elif isinstance(input,ee.FeatureCollection) or isinstance(input,ee.Feature):
             if os.path.exists(fileDirname):
                 print('File already exists:{}'.format(fileDirname));pass
             else:
-                geemap.ee_export_vector(input, fileDirname, selectors=None, verbose=True, keep_zip=keep_zip, timeout=300,
-                                        proxies=None)
-
+                geemap.ee_export_vector(input, fileDirname, selectors=None, verbose=True, 
+                                        keep_zip=keep_zip, timeout=300,proxies=None)
         else:
             print('Erro:collection && image must have one False')
 
