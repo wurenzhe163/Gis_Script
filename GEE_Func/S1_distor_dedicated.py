@@ -337,7 +337,7 @@ class S1_CalDistor(object):
             
     def Line2Points(feature,region,scale=30):
         # 从Feature中提取线几何对象
-        line_geometry = ee.Feature(feature).geometry().intersection(region)
+        line_geometry = ee.Feature(feature).geometry().intersection(region, maxError=1)
         
         # 获取线的所有坐标点
         coordinates = line_geometry.coordinates()

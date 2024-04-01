@@ -235,6 +235,37 @@ class Vector_process(object):
                 block = create_blocks(row, col)
                 block_list.append(block)
         return block_list
+    
+    def split_rectangle_into_grid(AOI, rows, cols):
+        """整齐分割矩形边界，比geemap.fishnet可靠"""
+
+        # 获取AOI的边界坐标
+        coords = ee.List(AOI.coordinates().get(0))
+        x_min = ee.Number(ee.List(coords.get(0)).get(0))
+        y_min = ee.Number(ee.List(coords.get(0)).get(1))
+        x_max = ee.Number(ee.List(coords.get(2)).get(0))
+        y_max = ee.Number(ee.List(coords.get(2)).get(1))
+        
+        # 计算每个小矩形的宽度和高度
+        width = x_max.subtract(x_min).divide(cols)
+        height = y_max.subtract(y_min).divide(rows)
+        
+        # 定义一个函数来创建小矩形
+        def create_rectangle(row, col):
+            x1 = x_min.add(col.multiply(width))
+            y1 = y_min.add(row.multiply(height))
+            x2 = x1.add(width)
+            y2 = y1.add(height)
+            return ee.Geometry.Rectangle([x1, y1, x2, y2])
+        
+        # 生成小矩形列表
+        grid_list = []
+        for row in range(rows):
+            for col in range(cols):
+                rectangle = create_rectangle(ee.Number(row), ee.Number(col))
+                grid_list.append(rectangle)
+        
+        return ee.List(grid_list)
 
 class DataIO(object):
     @staticmethod
