@@ -13,8 +13,8 @@ import sys
 import numpy as np
 
 # ---------------------------------S1几何畸变检测、冰湖提取专用
-def load_S1collection(aoi, start_date, end_date, middle_date,
-                        Filter=None, FilterSize=30):
+def load_S1collection(aoi, start_date, end_date, middle_date, Filter=None, FilterSize=30):
+
     '''s1数据加载'''
     s1_col = (ee.ImageCollection("COPERNICUS/S1_GRD")
                 .filter(ee.Filter.eq('instrumentMode', 'IW'))
@@ -366,6 +366,7 @@ class S1_CalDistor(object):
                                                                 ee.FeatureCollection([])))
 
         return filtered_points
+    
     def AuxiliaryLine2Point_numpy(cal_image, s1_azimuth_across, coordinates_dict, Auxiliarylines, scale):
         '''获取所有待计算的计算线,线是矢量'''
         # 计算斜率

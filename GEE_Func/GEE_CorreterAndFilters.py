@@ -415,6 +415,7 @@ class S1Corrector(object):
                                                           minLat, minLon,
                                                           crdLats.get(crdLons.indexOf(minLon))]),
                                   {'azimuth': azimuth}).copyProperties(image))
+        
         # 关于Buffer计算辅助线(根据局部范围运算)
         coords = ee.Array(image.clip(AOI_buffer).geometry().coordinates().get(0)).transpose()
         crdLons = ee.List(coords.toList().get(0))
