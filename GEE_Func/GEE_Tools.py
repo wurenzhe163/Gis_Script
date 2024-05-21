@@ -6,6 +6,7 @@ from PackageDeepLearn.utils.DataIOTrans import make_dir
 # --获取子数据集(主要用于删除GEE Asset)
 
 class GEE_Asset(object):
+    # 获取指定父文件夹或图像集合下的所有子资产（包括文件夹和图像集合），并返回它们的名称列表
     def get_asset_list(parent):
         parent_asset = ee.data.getAsset(parent)
         parent_id = parent_asset['name']
@@ -34,7 +35,7 @@ class GEE_Asset(object):
 
     try:
         from geeup import geeup
-    # 重新载入变量，通过将数据上传至GEE再重新载入，打断惰性运算的算力要求
+        # 重新载入变量，通过将数据上传至GEE再重新载入，打断惰性运算的算力要求
         def reload_variable(region,
                             scale=10,
                             save_dir='./test',
