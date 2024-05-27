@@ -1,6 +1,6 @@
 import ee
 import os
-from GEE_DataIOTrans import DataIO
+from .GEE_DataIOTrans import DataIO
 from PackageDeepLearn.utils.DataIOTrans import make_dir
 
 # --获取子数据集(主要用于删除GEE Asset)

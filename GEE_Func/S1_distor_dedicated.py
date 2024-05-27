@@ -1,14 +1,13 @@
-from GEEMath import time_difference
 from functools import partial
 import ee
-from GEE_CorreterAndFilters import ImageFilter
-from GEE_DataIOTrans import DataTrans
-from GEE_DataIOTrans import DataTrans
-from GEE_DataIOTrans import BandTrans
-from GEEMath import angle2slope
+from .GEE_CorreterAndFilters import ImageFilter
+from .GEE_DataIOTrans import DataTrans
+from .GEE_DataIOTrans import DataTrans
+from .GEE_DataIOTrans import BandTrans
+from .GEEMath import angle2slope,time_difference
 from tqdm import tqdm
 from scipy.signal import argrelextrema
-from GEE_CorreterAndFilters import S1Corrector
+from .GEE_CorreterAndFilters import S1Corrector
 import sys
 import numpy as np
 

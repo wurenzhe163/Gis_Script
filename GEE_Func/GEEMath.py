@@ -8,9 +8,13 @@ def calculate_iou(geometry1, geometry2):
     union_area = union.area()
     return intersection_area.divide(union_area)
 
-def get_minmax(Image: ee.Image, scale: int = 10):
+def get_minmax(Image: ee.Image,AOI=False, scale: int = 10):
     '''Image 只能包含有一个波段，否则不能重命名'''
-    Obj = Image.reduceRegion(reducer=ee.Reducer.minMax(), geometry=Image.geometry(), scale=scale, bestEffort=True)
+    if AOI:
+        geometry = AOI
+    else:
+        geometry = Image.geometry()
+    Obj = Image.reduceRegion(reducer=ee.Reducer.minMax(), geometry=geometry, scale=scale, bestEffort=True)
     return Obj.rename(**{'from': Obj.keys(), 'to': ['max', 'min']})
 
 def minmax_norm(Image: ee.Image, Bands, region, scale: int = 10, withbound=False):
