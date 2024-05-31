@@ -1,43 +1,35 @@
 import ee
 import geemap
 import math
-import sys,os
-from osgeo import gdal
-from GEE_Func.S1_distor_dedicated import load_S1collection,S1_CalDistor,DEM_caculator
-from GEE_Func.S2_filter import merge_s2_collection
-from GEE_Func.GEE_DataIOTrans import DataTrans,DataIO,Vector_process
-from GEE_Func.GEE_CorreterAndFilters import ImageFilter,S1Corrector
-from GEE_Func.GEEMath import get_minmax
-from GEE_Func.GEE_Tools import Select_imageNum 
-from functools import partial
-from tqdm import tqdm
-import traceback
+import sys, os
+import json
+from GEE_Func.S1_distor_dedicated import load_S1collection, S1_CalDistor, DEM_caculator
+from GEE_Func.GEE_DataIOTrans import DataTrans, DataIO, Vector_process
+from GEE_Func.GEE_CorreterAndFilters import ImageFilter, S1Corrector
 from GEE_Func.GEE_Tools import S1_Cheker
+from functools import partial
+import traceback
+from osgeo import gdal
 Eq_pixels = DataTrans.Eq_pixels
-os.chdir(r'D:\Dataset_and_Demo\DataFused')
 from PackageDeepLearn.utils import DataIOTrans
-from samgeo import tms_to_geotiff , SamGeo # type: ignore
-# from samgeo.hq_sam import SamGeo,show_image,download_file,overlay_images,tms_to_geotiff
 
 geemap.set_proxy(port=10809)
-# ee.Authenticate()
 ee.Initialize()
 
-restrict_Fuse = False # 图像融合方式
-Filter_Angle  = 38    # 数字越小越容易导入Layover图像，普遍值为32-45
-Nodata_tore   = 0     # 感兴趣区域nodata像素数容忍度
+restrict_Fuse = False  # 图像融合方式
+Filter_Angle = 38  # 数字越小越容易导入Layover图像，普遍值为32-45
+Nodata_tore = 0  # 感兴趣区域nodata像素数容忍度
 NodataTovalue = 0
-Origin_scale = 10     # 原始数据分辨率
-projScale = 30        # 投影分辨率
-box_fromGEE = True    # box是否由GEE获得
+Origin_scale = 10  # 原始数据分辨率
+projScale = 30  # 投影分辨率
+box_fromGEE = True  # box是否由GEE获得
 BoundBuffer_Add = 300 # 边界缓冲区加值
-model = 'volume'      # Slop correction model
+model = 'volume'  # Slop correction model
 DEM = ee.Image("NASA/NASADEM_HGT/001").select('elevation')
+SaveDir = r'D:\Dataset_and_Demo'
+
 years = ['2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024']
 SETP_Season = ['-02-25', '-05-31', '-09-15', '-11-28', '-02-25']
-
-START_DATE = ee.Date(years[4] + SETP_Season[1])
-END_DATE = ee.Date(years[4] + SETP_Season[2])
 
 # --------------------------------------功能函数
 def getS1Corners(image, orbitProperties_pass):
@@ -114,7 +106,6 @@ def merge_tiles(tile_paths, output_path):
     gdal.Translate(output_path, vrt)
     vrt = None  # 释放内存
     
-    
 #--------------------------预加载冰湖数据,测试的时候加上Filter_bound
 Glacial_lake = ee.FeatureCollection('projects/ee-mrwurenzhe/assets/Glacial_lake/SAR_GLs/2019Gls_SARExt').sort('fid_1')
 Glacial_lake_Shrink = ee.FeatureCollection('projects/ee-mrwurenzhe/assets/Glacial_lake/SAR_GLs/2019Gls_SARExt_inbuffer').sort('fid_1')
@@ -137,16 +128,11 @@ Glacial_lake_C_CentriodList = ee.List(Glacial_lake_C.reduceColumns(ee.Reducer.to
 Glacial_lake_R_RectangleList = ee.List(Glacial_lake_C.reduceColumns(ee.Reducer.toList(),['Rectangle']).get('list'))
 Glacial_lake_Shrink_GeoList = Glacial_lake_Shrink.toList(Num_list)
 
-for i in tqdm(range(Num_list)):
+        
+def download_data(i, START_DATE, END_DATE, output_folder):
     try:
-        save_path = "{}_ADMeanFused.tif".format(f'{i:05d}')
-        save_path2 = "{}_ADMeanFused_WithTiles.tif".format(f'{i:05d}')
-        Output_Path = "{}_ADMeanFused_SAM.tif".format(f'{i:05d}')
-
-        if (os.path.exists(save_path) or os.path.exists(save_path2)) and os.path.exists(Output_Path):
-            print(f"文件已存在，跳过索引 {i}")
-            continue
-
+        save_path = os.path.join(output_folder, "{}_ADMeanFused.tif".format(f'{i:05d}'))
+        save_path2 = os.path.join(output_folder, "{}_ADMeanFused_WithTiles.tif".format(f'{i:05d}'))
         GLAOI = ee.Feature(Glacial_lake_A_GeoList.get(i))
         AOI = GLAOI.geometry()
         AOI_Bound = ee.Feature(Glacial_lake_R_RectangleList.get(i)).geometry()
@@ -215,46 +201,65 @@ for i in tqdm(range(Num_list)):
             s1_unit_mean_ = Combin_AD.mean().reproject(crs=proj).clip(AOI_bufferBounds)
 
         s1_unit_mean_ = s1_unit_mean_.unmask(NodataTovalue)
-
-            
-        # 尝试直接导出完整图像
+        
         try:
             DataIO.Geemap_export(save_path, s1_unit_mean_, region=AOI_bufferBounds, scale=Origin_scale, rename_image=False)
-            # 检查文件是否成功下载
             if not os.path.exists(save_path):
                 raise FileNotFoundError(f"{save_path} not found after export")
         except Exception as e:
             print(f'直接导出失败: {e}')
             print('开始分块导出...')
-            
             grid_list = Vector_process.split_rectangle_into_grid(AOI_bufferBounds, 3, 3)
-            tile_paths = export_image_tiles(s1_unit_mean_, save_path, grid_list,9,Origin_scale)
+            tile_paths = export_image_tiles(s1_unit_mean_, save_path, grid_list, 9, Origin_scale)
             save_path = save_path2
             merge_tiles(tile_paths, save_path)
-            
             for tile_path in tile_paths:
                 if os.path.exists(tile_path):
                     os.remove(tile_path)
-        
-                    
+
+        if not os.path.exists(save_path):
+            raise FileNotFoundError(f"{save_path} not found after export")
+
         imagePath = DataIOTrans.DataIO.TransImage_Values(save_path, transFunc=DataIOTrans.DataTrans.MinMaxBoundaryScaler,
-                                                         bandSave=[0, 0, 0], scale=255)
+                                                        bandSave=[0, 0, 0], scale=255)
 
-        sam = SamGeo(model_type="vit_h",automatic=False,sam_kwargs=None)
-        sam.set_image(imagePath)
+        # 保存 AOI_Bound 信息
+        aoi_info_path = save_path.replace('.tif', '_AOI.json')
+        with open(aoi_info_path, 'w') as f:
+            json.dump(AOI_Bound.getInfo(), f)
 
-        AOI_Bound_Info = AOI_Bound.getInfo()
-        if box_fromGEE:
-            boxes = [*AOI_Bound_Info['coordinates'][0][0], *AOI_Bound_Info['coordinates'][0][2]]
-            sam.predict(boxes=boxes, point_crs="EPSG:4326", output=Output_Path, dtype="uint8")
+        return imagePath, AOI_Bound
 
     except Exception as e:
         print(f'错误发生: {e}')
-        # 记录错误信息
         with open('log.txt', 'a') as f:
             f.write(f'Wrong index = {i}\n')
             f.write(traceback.format_exc())
             f.write('\n')
         print(f'错误已记录到log.txt: {e}')
+        return None, None
 
-print(f'处理完成，错误的索引已记录到log文件')
+def process_index(i, START_DATE, END_DATE, output_folder):
+    print(f"Processing index: {i} for time range {START_DATE.format('YYYY-MM-dd').getInfo()} to {END_DATE.format('YYYY-MM-dd').getInfo()}")
+    imagePath, AOI_Bound = download_data(i, START_DATE, END_DATE, output_folder)
+    if imagePath and AOI_Bound:
+        print(f'Download complete for index: {i}, saved to {imagePath}')
+
+def main():
+    for year in years:
+        for season_index in range(len(SETP_Season) - 1):
+            START_DATE = ee.Date(year + SETP_Season[season_index])
+            END_DATE = ee.Date(year + SETP_Season[season_index + 1])
+            output_folder = os.path.join(SaveDir, f"{START_DATE.format('YYYY-MM-dd').getInfo()}_to_{END_DATE.format('YYYY-MM-dd').getInfo()}")
+            os.makedirs(output_folder, exist_ok=True)
+            os.chdir(output_folder)
+            Cal_list = list(range(Num_list))
+            # 过滤掉已存在文件的索引
+            Cal_list = [i for i in Cal_list if not (os.path.exists("{}_ADMeanFused.tif".format(f'{i:05d}')) 
+                                            or os.path.exists("{}_ADMeanFused_WithTiles.tif".format(f'{i:05d}')))]
+            
+            for i in Cal_list:
+                process_index(i, START_DATE, END_DATE, output_folder)
+
+if __name__ == "__main__":
+    main()

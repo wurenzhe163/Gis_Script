@@ -2,16 +2,16 @@ import ee
 import geemap
 import math
 import sys, os
+from osgeo import gdal
 import asyncio
 from GEE_Func.S1_distor_dedicated import load_S1collection, S1_CalDistor, DEM_caculator
 from GEE_Func.S2_filter import merge_s2_collection
-from GEE_Func.GEE_DataIOTrans import DataTrans,DataIO
+from GEE_Func.GEE_DataIOTrans import DataTrans, DataIO,Vector_process
 from GEE_Func.GEE_CorreterAndFilters import ImageFilter, S1Corrector
 from GEE_Func.GEEMath import get_minmax
 from GEE_Func.GEE_Tools import Select_imageNum
 from functools import partial
 import traceback
-import time
 Eq_pixels = DataTrans.Eq_pixels
 from PackageDeepLearn.utils import DataIOTrans
 from samgeo import tms_to_geotiff, SamGeo
@@ -101,6 +101,20 @@ def getMask(image, nodataValues: list = []):
         return combined_mask
 
 
+def export_image_tiles(image, save_path, grid_list,tiles_num, scale):
+    tasks = []
+    for idx in range(tiles_num):
+        tile_path = f"{save_path}_tile_{idx}.tif"
+        geemap.ee_export_image(image, filename=tile_path, scale=scale, region=grid_list.get(idx), file_per_band=False, timeout=300)
+        tasks.append(tile_path)
+    return tasks
+
+def merge_tiles(tile_paths, output_path):
+    vrt_options = gdal.BuildVRTOptions(resampleAlg='cubic', addAlpha=True)
+    vrt = gdal.BuildVRT('/vsimem/temporary.vrt', tile_paths, options=vrt_options)
+    gdal.Translate(output_path, vrt)
+    vrt = None  # 释放内存
+
 # --------------------------预加载冰湖数据,测试的时候加上Filter_bound
 Glacial_lake = ee.FeatureCollection('projects/ee-mrwurenzhe/assets/Glacial_lake/SAR_GLs/2019Gls_SARExt').sort('fid_1')
 Glacial_lake_Shrink = ee.FeatureCollection('projects/ee-mrwurenzhe/assets/Glacial_lake/SAR_GLs/2019Gls_SARExt_inbuffer').sort('fid_1')
@@ -135,29 +149,29 @@ async def download_data(i, semaphore):
             AOI_bufferBounds = AOI_Bound.buffer(distance=math.log(AOI_area + 1, 5) * 1200 + BoundBuffer_Add).bounds()
 
             s1_col = (ee.ImageCollection("COPERNICUS/S1_GRD")
-                      .filter(ee.Filter.eq('instrumentMode', 'IW'))
-                      .filterBounds(AOI)
-                      .filterDate(START_DATE, END_DATE))
+                    .filter(ee.Filter.eq('instrumentMode', 'IW'))
+                    .filterBounds(AOI)
+                    .filterDate(START_DATE, END_DATE))
 
             s1_col = s1_col.map(partial(DataTrans.rm_nodata, AOI=AOI))
             s1_col = s1_col.map(partial(DataTrans.cal_minmax, AOI=AOI))
             s1_col_Nodata = s1_col.filter(ee.Filter.lte('numNodata', Nodata_tore))
             if s1_col_Nodata.size().getInfo() == 0:
                 s1_col_Nodata = s1_col
-                print(f'All s1_col data nodata nums > 0 at index {i}')
+                print('All s1_col data nodata nums > 0')
 
             s1_col_Angle = s1_col_Nodata.filter(ee.Filter.gte('min', Filter_Angle))
             if s1_col_Angle.size().getInfo() == 0:
                 s1_col_Angle = s1_col_Nodata
-                print(f'All s1_col data Angle < {Filter_Angle} at index {i}')
+                print('All s1_col data Angle < {}'.format(Filter_Angle))
 
-            s1_col = s1_col_Angle.map(ImageFilter.RefinedLee)
+            s1_col = s1_col_Nodata.map(ImageFilter.RefinedLee)
             proj = s1_col.first().select(0).projection()
 
             s1_ascending_collection = s1_col.filter(ee.Filter.eq('orbitProperties_pass', 'ASCENDING')) \
-                                             .map(partial(S1_slope_correction, orbitProperties_pass='ASCENDING'))
+                                            .map(partial(S1_slope_correction, orbitProperties_pass='ASCENDING'))
             s1_descending_collection = s1_col.filter(ee.Filter.eq('orbitProperties_pass', 'DESCENDING')) \
-                                              .map(partial(S1_slope_correction, orbitProperties_pass='DESCENDING'))
+                                            .map(partial(S1_slope_correction, orbitProperties_pass='DESCENDING'))
 
             s1_ascending = s1_ascending_collection.mean().reproject(crs=proj).clip(AOI_bufferBounds)
             s1_descending = s1_descending_collection.mean().reproject(crs=proj, scale=Origin_scale).clip(AOI_bufferBounds)
@@ -186,13 +200,33 @@ async def download_data(i, semaphore):
 
             s1_unit_mean_ = s1_unit_mean_.unmask(NodataTovalue)
             save_path = "{}_ADMeanFused.tif".format(f'{i:05d}')
-            DataIO.Geemap_export(save_path, s1_unit_mean_, region=AOI_bufferBounds, scale=Origin_scale, rename_image=False)
+            
+            # 尝试直接导出完整图像                  
+            try:
+                DataIO.Geemap_export(save_path, s1_unit_mean_, region=AOI_bufferBounds, scale=Origin_scale, rename_image=False)
+                # 检查文件是否成功下载
+                if not os.path.exists(save_path):
+                    raise FileNotFoundError(f"{save_path} not found after export")
+            except Exception as e:
+                print(f'直接导出失败: {e}')
+                print('开始分块导出...')
+                
+                grid_list = Vector_process.split_rectangle_into_grid(AOI_bufferBounds, 3, 3)
+                tile_paths = export_image_tiles(s1_unit_mean_, save_path, grid_list,9,Origin_scale)
+                save_path = "{}_ADMeanFused_WithTiles.tif".format(f'{i:05d}')
+                merge_tiles(tile_paths, save_path)
+                
+                for tile_path in tile_paths:
+                    if os.path.exists(tile_path):
+                        os.remove(tile_path)                    
+            
 
+            # 确保文件存在
             if not os.path.exists(save_path):
                 raise FileNotFoundError(f"{save_path} not found after export")
 
             imagePath = DataIOTrans.DataIO.TransImage_Values(save_path, transFunc=DataIOTrans.DataTrans.MinMaxBoundaryScaler,
-                                                             bandSave=[0, 0, 0], scale=255)
+                                                            bandSave=[0, 0, 0], scale=255)
 
             return imagePath, AOI_Bound
 
@@ -243,8 +277,9 @@ async def main():
     Cal_list = list(range(Num_list))
 
     # 过滤掉已存在文件的索引
-    Cal_list = [i for i in Cal_list if not (os.path.exists("{}_ADMeanFused.tif".format(f'{i:05d}')) 
-                                            and os.path.exists("{}_ADMeanFused_SAM.tif".format(f'{i:05d}')))]
+    Cal_list = [i for i in Cal_list if not ((os.path.exists("{}_ADMeanFused.tif".format(f'{i:05d}')) 
+                                            or os.path.exists("{}_ADMeanFused_WithTiles.tif".format(f'{i:05d}')))
+                                            and os.path.exists("{}_ADMeanFused_SAM.tif".format(f'{i:05d}')))                                                ]
 
     tasks = [process_index(i, semaphore) for i in Cal_list]
     await asyncio.gather(*tasks)
