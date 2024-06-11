@@ -11,6 +11,7 @@ from functools import partial
 import traceback
 from osgeo import gdal
 Eq_pixels = DataTrans.Eq_pixels
+import numpy as np
 from PackageDeepLearn.utils import DataIOTrans
 
 geemap.set_proxy(port=10809)
@@ -96,7 +97,10 @@ def export_image_tiles(image, save_path, grid_list,tiles_num, scale):
     tasks = []
     for idx in range(tiles_num):
         tile_path = f"{save_path}_tile_{idx}.tif"
-        geemap.ee_export_image(image, filename=tile_path, scale=scale, region=grid_list.get(idx), file_per_band=False, timeout=300)
+        if os.path.exists(tile_path):
+            pass
+        else:
+            geemap.ee_export_image(image, filename=tile_path, scale=scale, region=grid_list.get(idx), file_per_band=False, timeout=300)
         tasks.append(tile_path)
     return tasks
 
@@ -210,7 +214,12 @@ def download_data(i, START_DATE, END_DATE, output_folder):
             print(f'直接导出失败: {e}')
             print('开始分块导出...')
             grid_list = Vector_process.split_rectangle_into_grid(AOI_bufferBounds, 3, 3)
-            tile_paths = export_image_tiles(s1_unit_mean_, save_path, grid_list, 9, Origin_scale)
+            while True:
+                tile_paths = export_image_tiles(s1_unit_mean_, save_path, grid_list, 9, Origin_scale)
+                # 检查tile——paths全部存在，否则重试
+                if np.sum([os.path.exists(each) for each in tile_paths]) == len(tile_paths):
+                    break
+                
             save_path = save_path2
             merge_tiles(tile_paths, save_path)
             for tile_path in tile_paths:
@@ -249,7 +258,14 @@ def main():
     for year in years:
         for season_index in range(len(SETP_Season) - 1):
             START_DATE = ee.Date(year + SETP_Season[season_index])
-            END_DATE = ee.Date(year + SETP_Season[season_index + 1])
+            # Check if it's a cross-year season
+            if SETP_Season[season_index] == '-11-28' and SETP_Season[season_index + 1] == '-02-25':
+                next_year = str(int(year) + 1)
+                END_DATE = ee.Date(next_year + SETP_Season[season_index + 1])
+            else:
+                END_DATE = ee.Date(year + SETP_Season[season_index + 1])
+            print(f"START_DATE: {START_DATE.format('YYYY-MM-dd').getInfo()}, END_DATE: {END_DATE.format('YYYY-MM-dd').getInfo()}")
+            
             output_folder = os.path.join(SaveDir, f"{START_DATE.format('YYYY-MM-dd').getInfo()}_to_{END_DATE.format('YYYY-MM-dd').getInfo()}")
             os.makedirs(output_folder, exist_ok=True)
             os.chdir(output_folder)

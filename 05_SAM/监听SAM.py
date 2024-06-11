@@ -10,6 +10,14 @@ exclude_folders = ['DataFused', ]  # 需要排除的子文件夹
 
 box_fromGEE = True  # 是否从 GEE 获得 box
 
+# 初始化 SamGeo
+sam = SamGeo(
+    model_type="vit_h",
+    automatic=False,
+    device='cuda',
+    sam_kwargs=None,
+)
+
 def get_files_to_process(base_folder, exclude_folders):
     '''获取需要处理的图像路径'''
     files_to_process = []
@@ -34,12 +42,6 @@ def process_file(file_paths):
         print(f"Processing file: {input_path}")
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-        # 初始化 SamGeo
-        sam = SamGeo(
-            model_type="vit_h",
-            automatic=False,
-            sam_kwargs=None,
-        )
         sam.set_image(input_path)
 
         # 读取 AOI_Bound_Info 信息
