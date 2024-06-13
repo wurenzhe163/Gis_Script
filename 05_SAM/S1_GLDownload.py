@@ -29,7 +29,7 @@ model = 'volume'  # Slop correction model
 DEM = ee.Image("NASA/NASADEM_HGT/001").select('elevation')
 SaveDir = r'D:\Dataset_and_Demo'
 
-years = ['2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024']
+years = ['2023']
 SETP_Season = ['-02-25', '-05-31', '-09-15', '-11-28', '-02-25']
 
 # --------------------------------------功能函数
@@ -151,9 +151,30 @@ def download_data(i, START_DATE, END_DATE, output_folder):
 
         s1_col = s1_col.map(partial(DataTrans.rm_nodata, AOI=AOI))
         s1_col = s1_col.map(partial(DataTrans.cal_minmax, AOI=AOI))
+        proj = s1_col.first().select(0).projection()
         
         s1_a_col = s1_col.filter(ee.Filter.eq('orbitProperties_pass', 'ASCENDING'))
         s1_d_col = s1_col.filter(ee.Filter.eq('orbitProperties_pass', 'DESCENDING'))
+        
+        # 如果数据量很少
+        if s1_a_col.size().getInfo() == 0 or s1_d_col.size().getInfo() == 0:
+            print('No s1_a_col or s1_d_col data')
+            with open('log.txt', 'a') as f:
+                f.write(f'Wrong index = {i}\n')
+                f.write('缺少升轨或降轨数据')
+                f.write('\n')
+                
+            Origin = s1_col.map(S1_Cheker.CheckDuplicateBands).map(ImageFilter.RefinedLee)\
+                         .mean().reproject(crs=proj).clip(AOI_bufferBounds)
+            DataIO.Geemap_export(save_path, Origin, region=AOI_bufferBounds, scale=Origin_scale, rename_image=False)
+            # 保存 AOI_Bound 信息
+            aoi_info_path = save_path.replace('.tif', '_AOI.json')
+            with open(aoi_info_path, 'w') as f:
+                json.dump(AOI_Bound.getInfo(), f)             
+            imagePath = DataIOTrans.DataIO.TransImage_Values(save_path, transFunc=DataIOTrans.DataTrans.MinMaxBoundaryScaler,
+                                                bandSave=[0, 0, 0], scale=255)
+            return imagePath,AOI_Bound
+        
         s1_a_col_Nodata = s1_a_col.filter(ee.Filter.lte('numNodata', Nodata_tore))
         s1_d_col_Nodata = s1_d_col.filter(ee.Filter.lte('numNodata', Nodata_tore))
         
@@ -177,7 +198,6 @@ def download_data(i, START_DATE, END_DATE, output_folder):
                                     map(partial(S1_slope_correction, orbitProperties_pass='ASCENDING'))
         s1_descending_collection = s1_d_col_Angle.map(S1_Cheker.CheckDuplicateBands).map(ImageFilter.RefinedLee).\
                                     map(partial(S1_slope_correction, orbitProperties_pass='DESCENDING'))
-        proj = s1_col.first().select(0).projection()
 
         s1_ascending = s1_ascending_collection.mean().reproject(crs=proj).clip(AOI_bufferBounds)
         s1_descending = s1_descending_collection.mean().reproject(crs=proj).clip(AOI_bufferBounds)
