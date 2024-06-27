@@ -1,0 +1,81 @@
+# Table of content
+# Learn more at https://jupyterbook.org/customize/toc.html
+root: intro
+format: jb-book
+parts:
+- caption: Details
+  chapters:
+    - file: application
+    - file: logistics
+    - title: Schedule
+      url: https://icesat-2-2023.hackweek.io/index.html?jump_to=schedule
+    - title: Team
+      url: https://icesat-2-2023.hackweek.io/index.html?jump_to=team
+    - file: mission
+    - file: CoC
+- caption: Preparation
+  chapters:
+    - file: preliminary/checklist_index
+      sections:
+      - file: preliminary/checklist/github
+      - file: preliminary/checklist/jupyterhub
+      - file: preliminary/checklist/git
+      - file: preliminary/checklist/earthdata
+      - file: preliminary/checklist/earthengine
+    - file: preliminary/skills_refresher_index
+      sections:
+        - file: preliminary/skills-refresher/swc
+- caption: Tutorials
+  chapters:
+    - file: tutorials/index
+      sections:
+        - file: tutorials/cryocloud_demo/CryoCloud_demo
+        - file: tutorials/data-access-and-format/index
+          sections:
+            - file: tutorials/data-access-and-format/overview
+            - file: tutorials/data-access-and-format/earthdata_search
+            - file: tutorials/data-access-and-format/earthaccess
+            - file: tutorials/data-access-and-format/icepyx
+            - file: tutorials/data-access-and-format/sliderule
+        - file: tutorials/mission_overview/index
+          sections:
+            - file: tutorials/mission_overview/icesat-2-land-ice-products
+            - file: tutorials/mission_overview/sliderule-feature-find
+        - file: tutorials/sliderule/parquet-s3
+        - file: tutorials/bathymetry/bathymetry_tutorial
+        - file: tutorials/DataVisualization/OpenAltimetry_Earth_Engine
+          sections:
+            - file: tutorials/DataVisualization/use_examples
+        - file: tutorials/sea_ice/1_sea_ice_tutorial
+          sections:
+            - file: tutorials/sea_ice/2_ATL10_Sentinel-2
+        - file: tutorials/OOP/index
+          title: Object Oriented Programming
+          sections:
+            - file: tutorials/OOP/OOP_tutorial_complete
+            - file: tutorials/OOP/alien
+        - file: tutorials/snow-depth/applications-tutorial-snow-depth
+        - file: tutorials/Hydrology/Hackweek
+        - file: tutorials/GrIMP/GrIMP_tutorial
+- caption: Projects
+  chapters:
+    - file: projects/index
+      sections:
+        - file: projects/project_roles
+        - file: projects/project_roadmap
+        - file: projects/project_initialization
+    - file: projects/list_of_projects
+      sections:
+        - file: projects/project_readmes/project_readme_template
+- caption: Reference
+  chapters:
+    - file: reference/glossary
+    - file: reference/bibliography
+    - file: reference/open_science
+    - file: reference/open_source_software
+    - file: reference/questions
+    - file: reference/social
+    - file: reference/supplemental_index
+      sections:
+        - file: reference/supplemental/python
+        - file: reference/supplemental/conda
