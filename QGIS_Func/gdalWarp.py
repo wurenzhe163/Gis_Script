@@ -6,7 +6,7 @@ from qgis.core import (QgsProcessingAlgorithm,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterRasterDestination,
                        QgsProcessingException,
-                       QgsApplication)
+                       QgsApplication, QgsProcessingProvider, QgsProcessingFeedback, QgsProcessingContext)
 from qgis import processing
 import os
 from osgeo import gdal
@@ -17,14 +17,11 @@ class MergeTiffAlgorithm(QgsProcessingAlgorithm):
     OUTPUT_TIF = 'OUTPUT_TIF'
     KEEP_VRT = 'KEEP_VRT'
     OUTPUT_TYPE = 'OUTPUT_TYPE'
-    COMPRESSION = 'COMPRESSION'
 
     OUTPUT_TYPES = [
-        'Byte', 'UInt16', 'Int16', 'UInt32', 'Int32', 
+        'Byte', 'UInt16', 'Int16', 'UInt32', 'Int32',
         'Float32', 'Float64', 'CInt16', 'CInt32', 'CFloat32', 'CFloat64'
     ]
-
-    COMPRESSION_OPTIONS = ['None', 'LZW', 'DEFLATE', 'PACKBITS']
 
     def initAlgorithm(self, config=None):
         self.addParameter(
@@ -67,15 +64,6 @@ class MergeTiffAlgorithm(QgsProcessingAlgorithm):
             )
         )
 
-        self.addParameter(
-            QgsProcessingParameterEnum(
-                self.COMPRESSION,
-                'TIFF Compression',
-                options=self.COMPRESSION_OPTIONS,
-                defaultValue=1  # Default to LZW
-            )
-        )
-
     def processAlgorithm(self, parameters, context, feedback):
         input_folder = self.parameterAsFile(
             parameters,
@@ -107,12 +95,6 @@ class MergeTiffAlgorithm(QgsProcessingAlgorithm):
             context
         )]
 
-        compression = self.COMPRESSION_OPTIONS[self.parameterAsEnum(
-            parameters,
-            self.COMPRESSION,
-            context
-        )]
-
         def search_files(path, endwith='.tif'):
             return [os.path.join(path, f) for f in os.listdir(path) if f.endswith(endwith)]
 
@@ -138,16 +120,15 @@ class MergeTiffAlgorithm(QgsProcessingAlgorithm):
             aligned_inputs = []
             for img in input_group:
                 aligned_img = img.replace('.tif', '_aligned.tif')
-                gdal.Warp(aligned_img, img, dstSRS='EPSG:4326', outputType=gdal.GetDataTypeByName(output_type))  # 转换至 WGS84 投影
+                gdal.Warp(aligned_img, img, dstSRS='EPSG:4326', outputType=gdal.GetDataTypeByName(output_type))
                 aligned_inputs.append(aligned_img)
         else:
             aligned_inputs = input_group
 
         # 创建虚拟数据集
         gdal.BuildVRT(output_vrt, aligned_inputs)
-
         # 使用期望的重采样算法进行图像拼接
-        gdal.Warp(output_tif, output_vrt, resampleAlg='bilinear', outputType=gdal.GetDataTypeByName(output_type), options=['COMPRESS=' + compression]) #'average', 'nearest', 'bilinear', 'cubic', 'cubicspline', 'lanczos', 'average_magphase', 'mode'
+        gdal.Warp(output_tif, output_vrt, resampleAlg='bilinear', outputType=gdal.GetDataTypeByName(output_type))
 
         if not keep_vrt:
             os.remove(output_vrt)
@@ -172,7 +153,6 @@ class MergeTiffAlgorithm(QgsProcessingAlgorithm):
     def createInstance(self):
         return MergeTiffAlgorithm()
 
-# 注册算法
 if __name__ == "__main__":
     QgsApplication.setPrefixPath("/usr", True)
     app = QgsApplication([], False)
@@ -189,8 +169,7 @@ if __name__ == "__main__":
         'TO_EPSG_4326': True,
         'OUTPUT_TIF': 'path_to_output_folder/merge.tif',
         'KEEP_VRT': False,
-        'OUTPUT_TYPE': 'Float32',
-        'COMPRESSION': 'LZW'
+        'OUTPUT_TYPE': 'Float32'
     }
 
     alg = MergeTiffAlgorithm()
