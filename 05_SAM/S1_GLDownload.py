@@ -29,7 +29,7 @@ model = 'volume'  # Slop correction model
 DEM = ee.Image("NASA/NASADEM_HGT/001").select('elevation')
 SaveDir = r'D:\Dataset_and_Demo'
 
-years = ['2023']
+years = ['2015','2016','2017','2018','2019','2020','2021','2022','2023','2024']
 SETP_Season = ['-02-25', '-05-31', '-09-15', '-11-28', '-02-25']
 
 # --------------------------------------功能函数
