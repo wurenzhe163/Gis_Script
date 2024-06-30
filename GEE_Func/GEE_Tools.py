@@ -107,7 +107,26 @@ def AssignVariablesKwargs(**kwargs):
         # 直接处理值，不需要使用eval，因为值已经是正确的Python数据类型
         globals()[var_name] = value
         
-        
+# 跨年份，选择数据
+def filter_image_collection_by_dates(collection_name, date_ranges):
+    """
+    Filters an Earth Engine ImageCollection by multiple date ranges.
+
+    Example usage: 
+                    date_ranges = [
+                        ('2020-06-01', '2020-09-30'),
+                        ('2021-06-01', '2021-09-30'),
+                        ('2023-06-01', '2023-09-30')]
+                    filter_image_collection_by_dates('COPERNICUS/S2_SR', date_ranges)
+    """
+
+    collection = ee.ImageCollection(collection_name)
+    filtered_collections = [collection.filterDate(start, end) for start, end in date_ranges]
+    combined_collection = filtered_collections[0]
+    for col in filtered_collections[1:]:
+        combined_collection = combined_collection.merge(col)
+    return combined_collection
+
 # 从ee.ImageCollection中任意选取ee
 def Select_imageNum(ImageCollection: ee.ImageCollection, i):
     return ee.Image(ImageCollection.toList(ImageCollection.size()).get(i))

@@ -1,0 +1,7 @@
+[general]
+name=MergeTIFFPlugin
+qgisMinimumVersion=3.0
+description=Merge TIFF images in a folder into a single TIFF.
+version=1.0
+author=wrz
+email=mrwurenzhe@gmail.com
