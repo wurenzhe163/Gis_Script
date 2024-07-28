@@ -34,6 +34,30 @@ SaveDir = r'D:\Dataset_and_Demo\SETP_GL_TimeSeries'
 years = ['2015','2016','2017','2018','2019','2020','2021','2022','2023','2024']
 SETP_Season = ['-02-25', '-05-31', '-09-15', '-11-28', '-02-25']
 
+    
+#--------------------------预加载冰湖数据,测试的时候加上Filter_bound
+Glacial_lake = ee.FeatureCollection('projects/ee-mrwurenzhe/assets/Glacial_lake/SAR_GLs/2019Gls_SARExt').sort('fid_1')
+# Glacial_lake_shp = 'xxx.shp'
+# Glacial_lake = geemap.shp_to_ee(Glacial_lake_shp)
+
+#--------------------------预加载几何畸变数据
+Ascending_DistorFull = ee.Image('projects/ee-mrwurenzhe/assets/SETP_Distor/SETPAscending_Distor')
+Descending_DistorFull= ee.Image('projects/ee-mrwurenzhe/assets/SETP_Distor/SETPDescending_Distor')
+Ascending_GradFull   = ee.Image('projects/ee-mrwurenzhe/assets/SETP_Distor/SETPAscending_Forshortening_Grading_30')
+Descending_GradFull  = ee.Image('projects/ee-mrwurenzhe/assets/SETP_Distor/SETPDescending_Forshortening_Grading_30')
+
+# 计算geometry、质心点、最小包络矩形
+Geo_ext = lambda feature: feature.set({
+                                    'Geo': feature.geometry(),
+                                    'Centroid': feature.geometry().centroid(),
+                                    'Rectangle': feature.geometry().bounds()})
+
+Glacial_lake_C = Glacial_lake.map(Geo_ext)
+Num_list = Glacial_lake.size().getInfo()
+Glacial_lake_A_GeoList = Glacial_lake.toList(Num_list)
+Glacial_lake_C_CentriodList = ee.List(Glacial_lake_C.reduceColumns(ee.Reducer.toList(),['Centroid']).get('list'))
+Glacial_lake_R_RectangleList = ee.List(Glacial_lake_C.reduceColumns(ee.Reducer.toList(),['Rectangle']).get('list'))
+
 # --------------------------------------功能函数
 def getS1Corners(image, orbitProperties_pass):
     # 真实方位角(根据整幅影响运算)
@@ -111,29 +135,6 @@ def merge_tiles(tile_paths, output_path):
     vrt = gdal.BuildVRT('/vsimem/temporary.vrt', tile_paths, options=vrt_options)
     gdal.Translate(output_path, vrt)
     vrt = None  # 释放内存
-    
-#--------------------------预加载冰湖数据,测试的时候加上Filter_bound
-Glacial_lake = ee.FeatureCollection('projects/ee-mrwurenzhe/assets/Glacial_lake/SAR_GLs/2019Gls_SARExt').sort('fid_1')
-Glacial_lake_Shrink = ee.FeatureCollection('projects/ee-mrwurenzhe/assets/Glacial_lake/SAR_GLs/2019Gls_SARExt_inbuffer').sort('fid_1')
-#--------------------------预加载几何畸变数据
-Ascending_DistorFull = ee.Image('projects/ee-mrwurenzhe/assets/SETP_Distor/SETPAscending_Distor')
-Descending_DistorFull= ee.Image('projects/ee-mrwurenzhe/assets/SETP_Distor/SETPDescending_Distor')
-Ascending_GradFull   = ee.Image('projects/ee-mrwurenzhe/assets/SETP_Distor/SETPAscending_Forshortening_Grading_30')
-Descending_GradFull  = ee.Image('projects/ee-mrwurenzhe/assets/SETP_Distor/SETPDescending_Forshortening_Grading_30')
-
-# 计算geometry、质心点、最小包络矩形
-Geo_ext = lambda feature: feature.set({
-                                    'Geo': feature.geometry(),
-                                    'Centroid': feature.geometry().centroid(),
-                                    'Rectangle': feature.geometry().bounds()})
-
-Glacial_lake_C = Glacial_lake.map(Geo_ext)
-Num_list = Glacial_lake.size().getInfo()
-Glacial_lake_A_GeoList = Glacial_lake.toList(Num_list)
-Glacial_lake_C_CentriodList = ee.List(Glacial_lake_C.reduceColumns(ee.Reducer.toList(),['Centroid']).get('list'))
-Glacial_lake_R_RectangleList = ee.List(Glacial_lake_C.reduceColumns(ee.Reducer.toList(),['Rectangle']).get('list'))
-Glacial_lake_Shrink_GeoList = Glacial_lake_Shrink.toList(Num_list)
-
         
 def download_data(i, START_DATE, END_DATE, output_folder):
     try:
@@ -300,7 +301,6 @@ def main():
             # 过滤掉已存在文件的索引
             Cal_list = [i for i in Cal_list if not (os.path.exists("{}_ADMeanFused.tif".format(f'{i:05d}')) 
                                             or os.path.exists("{}_ADMeanFused_WithTiles.tif".format(f'{i:05d}')))]
-            
             
             for i in Cal_list:
                 process_index(i, START_DATE, END_DATE, output_folder)
