@@ -16,6 +16,8 @@ from PackageDeepLearn.utils import DataIOTrans
 
 geemap.set_proxy(port=10809)
 ee.Initialize()
+ee.Authenticate()
+
 
 restrict_Fuse = False  # 图像融合方式
 Filter_Angle = 38  # 数字越小越容易导入Layover图像，普遍值为32-45
@@ -27,7 +29,7 @@ box_fromGEE = True  # box是否由GEE获得
 BoundBuffer_Add = 300 # 边界缓冲区加值
 model = 'volume'  # Slop correction model
 DEM = ee.Image("NASA/NASADEM_HGT/001").select('elevation')
-SaveDir = r'D:\Dataset_and_Demo'
+SaveDir = r'D:\Dataset_and_Demo\SETP_GL_TimeSeries'
 
 years = ['2015','2016','2017','2018','2019','2020','2021','2022','2023','2024']
 SETP_Season = ['-02-25', '-05-31', '-09-15', '-11-28', '-02-25']
@@ -166,65 +168,69 @@ def download_data(i, START_DATE, END_DATE, output_folder):
                 
             Origin = s1_col.map(S1_Cheker.CheckDuplicateBands).map(ImageFilter.RefinedLee)\
                          .mean().reproject(crs=proj).clip(AOI_bufferBounds)
-            DataIO.Geemap_export(save_path, Origin, region=AOI_bufferBounds, scale=Origin_scale, rename_image=False)
-            # 保存 AOI_Bound 信息
-            aoi_info_path = save_path.replace('.tif', '_AOI.json')
-            with open(aoi_info_path, 'w') as f:
-                json.dump(AOI_Bound.getInfo(), f)             
-            imagePath = DataIOTrans.DataIO.TransImage_Values(save_path, transFunc=DataIOTrans.DataTrans.MinMaxBoundaryScaler,
-                                                bandSave=[0, 0, 0], scale=255)
-            return imagePath,AOI_Bound
-        
-        s1_a_col_Nodata = s1_a_col.filter(ee.Filter.lte('numNodata', Nodata_tore))
-        s1_d_col_Nodata = s1_d_col.filter(ee.Filter.lte('numNodata', Nodata_tore))
-        
-        if s1_a_col_Nodata.size().getInfo() == 0 :
-            s1_a_col_Nodata = s1_a_col
-            print('All s1_a_col data nodata nums > 0')
-        if s1_d_col_Nodata.size().getInfo() == 0 :
-            s1_d_col_Nodata = s1_d_col
-            print('All s1_d_col data nodata nums > 0')
-
-        s1_a_col_Angle = s1_a_col_Nodata.filter(ee.Filter.gte('min', Filter_Angle))
-        s1_d_col_Angle = s1_d_col_Nodata.filter(ee.Filter.gte('min', Filter_Angle))
-        if s1_a_col_Angle.size().getInfo() == 0:
-            s1_a_col_Angle = s1_a_col_Nodata
-            print('All s1_a_col data Angle < {}'.format(Filter_Angle))
-        if s1_d_col_Angle.size().getInfo() == 0:
-            s1_d_col_Angle = s1_d_col_Nodata
-            print('All s1_d_col data Angle < {}'.format(Filter_Angle))
-
-        s1_ascending_collection = s1_a_col_Angle.map(S1_Cheker.CheckDuplicateBands).map(ImageFilter.RefinedLee).\
-                                    map(partial(S1_slope_correction, orbitProperties_pass='ASCENDING'))
-        s1_descending_collection = s1_d_col_Angle.map(S1_Cheker.CheckDuplicateBands).map(ImageFilter.RefinedLee).\
-                                    map(partial(S1_slope_correction, orbitProperties_pass='DESCENDING'))
-
-        s1_ascending = s1_ascending_collection.mean().reproject(crs=proj).clip(AOI_bufferBounds)
-        s1_descending = s1_descending_collection.mean().reproject(crs=proj).clip(AOI_bufferBounds)
-
-        Ascending_Distor = Ascending_DistorFull
-        Descending_Distor = Descending_DistorFull
-        A_Mask = getMask(Ascending_Distor, nodataValues=[9])
-        D_Mask = getMask(Descending_Distor, nodataValues=[9])
-        Ascending_Grad = Ascending_GradFull
-        Descending_Grad = Descending_GradFull
-        A_Mask = A_Mask.Or(Ascending_Grad.gt(10).unmask(0))
-        D_Mask = D_Mask.Or(Descending_Grad.gt(10).unmask(0))
-        A_Mask = Eq_pixels(A_Mask).reproject(crs=proj).clip(AOI_bufferBounds)
-        D_Mask = Eq_pixels(D_Mask).reproject(crs=proj).clip(AOI_bufferBounds)
-        
-        if restrict_Fuse:
-            s1_ascending_ = s1_ascending.updateMask(A_Mask.Not())
-            s1_descending_ = s1_descending.updateMask(D_Mask.Not())
-            Combin_AD = ee.ImageCollection([s1_ascending_, s1_descending_])
-            s1_unit_mean_ = Combin_AD.mean().reproject(crs=proj).clip(AOI_bufferBounds)
+            s1_unit_mean_ = Origin
+            
+            # DataIO.Geemap_export(save_path, Origin, region=AOI_bufferBounds, scale=Origin_scale, rename_image=False)
+            
+            # # 保存 AOI_Bound 信息
+            # aoi_info_path = save_path.replace('.tif', '_AOI.json')
+            # with open(aoi_info_path, 'w') as f:
+            #     json.dump(AOI_Bound.getInfo(), f)             
+            # imagePath = DataIOTrans.DataIO.TransImage_Values(save_path, transFunc=DataIOTrans.DataTrans.MinMaxBoundaryScaler,
+            #                                     bandSave=[0, 0, 0], scale=255)
+            
+            # return imagePath,AOI_Bound
         else:
-            s1_ascending_ = ee.Image(s1_ascending.where(A_Mask, s1_descending))
-            s1_descending_ = ee.Image(s1_descending.where(D_Mask, s1_ascending))
-            Combin_AD = ee.ImageCollection([s1_ascending_, s1_descending_])
-            s1_unit_mean_ = Combin_AD.mean().reproject(crs=proj).clip(AOI_bufferBounds)
+            s1_a_col_Nodata = s1_a_col.filter(ee.Filter.lte('numNodata', Nodata_tore))
+            s1_d_col_Nodata = s1_d_col.filter(ee.Filter.lte('numNodata', Nodata_tore))
+            
+            if s1_a_col_Nodata.size().getInfo() == 0 :
+                s1_a_col_Nodata = s1_a_col
+                print('All s1_a_col data nodata nums > 0')
+            if s1_d_col_Nodata.size().getInfo() == 0 :
+                s1_d_col_Nodata = s1_d_col
+                print('All s1_d_col data nodata nums > 0')
 
-        s1_unit_mean_ = s1_unit_mean_.unmask(NodataTovalue)
+            s1_a_col_Angle = s1_a_col_Nodata.filter(ee.Filter.gte('min', Filter_Angle))
+            s1_d_col_Angle = s1_d_col_Nodata.filter(ee.Filter.gte('min', Filter_Angle))
+            if s1_a_col_Angle.size().getInfo() == 0:
+                s1_a_col_Angle = s1_a_col_Nodata
+                print('All s1_a_col data Angle < {}'.format(Filter_Angle))
+            if s1_d_col_Angle.size().getInfo() == 0:
+                s1_d_col_Angle = s1_d_col_Nodata
+                print('All s1_d_col data Angle < {}'.format(Filter_Angle))
+
+            s1_ascending_collection = s1_a_col_Angle.map(S1_Cheker.CheckDuplicateBands).map(ImageFilter.RefinedLee).\
+                                        map(partial(S1_slope_correction, orbitProperties_pass='ASCENDING'))
+            s1_descending_collection = s1_d_col_Angle.map(S1_Cheker.CheckDuplicateBands).map(ImageFilter.RefinedLee).\
+                                        map(partial(S1_slope_correction, orbitProperties_pass='DESCENDING'))
+
+            s1_ascending = s1_ascending_collection.mean().reproject(crs=proj).clip(AOI_bufferBounds)
+            s1_descending = s1_descending_collection.mean().reproject(crs=proj).clip(AOI_bufferBounds)
+
+            Ascending_Distor = Ascending_DistorFull
+            Descending_Distor = Descending_DistorFull
+            A_Mask = getMask(Ascending_Distor, nodataValues=[9])
+            D_Mask = getMask(Descending_Distor, nodataValues=[9])
+            Ascending_Grad = Ascending_GradFull
+            Descending_Grad = Descending_GradFull
+            A_Mask = A_Mask.Or(Ascending_Grad.gt(10).unmask(0))
+            D_Mask = D_Mask.Or(Descending_Grad.gt(10).unmask(0))
+            A_Mask = Eq_pixels(A_Mask).reproject(crs=proj).clip(AOI_bufferBounds)
+            D_Mask = Eq_pixels(D_Mask).reproject(crs=proj).clip(AOI_bufferBounds)
+            
+            if restrict_Fuse:
+                s1_ascending_ = s1_ascending.updateMask(A_Mask.Not())
+                s1_descending_ = s1_descending.updateMask(D_Mask.Not())
+                Combin_AD = ee.ImageCollection([s1_ascending_, s1_descending_])
+                s1_unit_mean_ = Combin_AD.mean().reproject(crs=proj).clip(AOI_bufferBounds)
+            else:
+                s1_ascending_ = ee.Image(s1_ascending.where(A_Mask, s1_descending))
+                s1_descending_ = ee.Image(s1_descending.where(D_Mask, s1_ascending))
+                Combin_AD = ee.ImageCollection([s1_ascending_, s1_descending_])
+                s1_unit_mean_ = Combin_AD.mean().reproject(crs=proj).clip(AOI_bufferBounds)
+
+            s1_unit_mean_ = s1_unit_mean_.unmask(NodataTovalue)
         
         try:
             DataIO.Geemap_export(save_path, s1_unit_mean_, region=AOI_bufferBounds, scale=Origin_scale, rename_image=False)
@@ -290,9 +296,11 @@ def main():
             os.makedirs(output_folder, exist_ok=True)
             os.chdir(output_folder)
             Cal_list = list(range(Num_list))
+            
             # 过滤掉已存在文件的索引
             Cal_list = [i for i in Cal_list if not (os.path.exists("{}_ADMeanFused.tif".format(f'{i:05d}')) 
                                             or os.path.exists("{}_ADMeanFused_WithTiles.tif".format(f'{i:05d}')))]
+            
             
             for i in Cal_list:
                 process_index(i, START_DATE, END_DATE, output_folder)
