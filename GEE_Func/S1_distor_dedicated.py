@@ -1,13 +1,14 @@
 from functools import partial
-import ee
-from .GEE_CorreterAndFilters import ImageFilter
-from .GEE_DataIOTrans import DataTrans
-from .GEE_DataIOTrans import DataTrans
-from .GEE_DataIOTrans import BandTrans
-from .GEEMath import angle2slope,time_difference
+import ee,os,sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from GEE_CorreterAndFilters import ImageFilter
+from GEE_DataIOTrans import DataTrans
+from GEE_DataIOTrans import DataTrans
+from GEE_DataIOTrans import BandTrans
+from GEEMath import angle2slope,time_difference
 from tqdm import tqdm
 from scipy.signal import argrelextrema
-from .GEE_CorreterAndFilters import S1Corrector
+from GEE_CorreterAndFilters import S1Corrector
 import sys
 import numpy as np
 

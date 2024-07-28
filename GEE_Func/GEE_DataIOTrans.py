@@ -1,10 +1,11 @@
-import ee,os,math
+import ee,os,math,sys
 import numpy as np
 import geemap
 from tqdm import trange
 from PackageDeepLearn.utils.Statistical_Methods import Cal_HistBoundary
-from .GEEMath import get_histogram,get_minmax,get_meanStd
-from .GEEMath import calculate_iou,get_minmax
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from GEEMath import get_histogram,get_minmax,get_meanStd
+from GEEMath import calculate_iou,get_minmax
 import pandas as pd
 import geopandas as gpd
 
@@ -12,6 +13,7 @@ try:
     from osgeo import gdal
 except:
     print('GEE_DataIOTrans not support gdal')
+    
 class DataTrans(object):
     @staticmethod
     def Open_close(img, radius=10):
