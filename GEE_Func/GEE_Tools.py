@@ -1,6 +1,7 @@
 import ee
-import os
-from .GEE_DataIOTrans import DataIO
+import os,sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from GEE_DataIOTrans import DataIO
 from PackageDeepLearn.utils.DataIOTrans import make_dir
 
 # --获取子数据集(主要用于删除GEE Asset)
