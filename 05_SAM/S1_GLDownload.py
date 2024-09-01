@@ -29,16 +29,16 @@ box_fromGEE = True  # box是否由GEE获得
 BoundBuffer_Add = 300 # 边界缓冲区加值
 model = 'volume'  # Slop correction model
 DEM = ee.Image("NASA/NASADEM_HGT/001").select('elevation')
-SaveDir = r'D:\Dataset_and_Demo\SETP_GL_TimeSeries'
+# SaveDir = r'D:\Dataset_and_Demo\SETP_GL_TimeSeries'
+SaveDir = r'D:\Dataset_and_Demo\SETP_GL_TS2'
 
 years = ['2015','2016','2017','2018','2019','2020','2021','2022','2023','2024']
 SETP_Season = ['-02-25', '-05-31', '-09-15', '-11-28', '-02-25']
 
     
 #--------------------------预加载冰湖数据,测试的时候加上Filter_bound
-Glacial_lake = ee.FeatureCollection('projects/ee-mrwurenzhe/assets/Glacial_lake/SAR_GLs/2019Gls_SARExt').sort('fid_1')
-# Glacial_lake_shp = 'xxx.shp'
-# Glacial_lake = geemap.shp_to_ee(Glacial_lake_shp)
+# Glacial_lake = ee.FeatureCollection('projects/ee-mrwurenzhe/assets/Glacial_lake/SAR_GLs/2019Gls_SARExt').sort('fid_1')
+Glacial_lake = ee.FeatureCollection('projects/ee-mrwurenzhe/assets/Glacial_lake/SAR_GLs/GL_replenish')
 
 #--------------------------预加载几何畸变数据
 Ascending_DistorFull = ee.Image('projects/ee-mrwurenzhe/assets/SETP_Distor/SETPAscending_Distor')
