@@ -4,8 +4,8 @@ from samgeo import SamGeo
 import json
 import traceback
 
-input_base_folder = r'D:\Dataset_and_Demo'  # 监控的文件夹路径
-output_base_folder = r'D:\Dataset_and_Demo\Processed'  # 输出文件夹路径
+input_base_folder = r'D:\Dataset_and_Demo\SETP_GL_TimeSeries'  # 监控的文件夹路径
+output_base_folder = r'D:\Dataset_and_Demo\SETP_GL_TimeSeries\Processed'  # 输出文件夹路径
 exclude_folders = ['DataFused', ]  # 需要排除的子文件夹
 
 box_fromGEE = True  # 是否从 GEE 获得 box
