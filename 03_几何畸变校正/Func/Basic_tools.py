@@ -1,11 +1,11 @@
 import os
 import ee
 import geemap
-from Correct_filter import *
+from .Correct_filter import *
 import copy
 from tqdm import tqdm, trange
-from New_Correct import *
-from Correct_filter import volumetric_model_SCF
+from .New_Correct import *
+from .Correct_filter import volumetric_model_SCF
 from osgeo import gdal
 
 

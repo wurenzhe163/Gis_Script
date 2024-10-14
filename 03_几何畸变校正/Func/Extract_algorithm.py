@@ -6,7 +6,7 @@ import numpy as np
 import geemap
 import geopandas as gpd
 import pandas as pd
-from Basic_tools import Open_close,calculate_iou
+from .Basic_tools import Open_close,calculate_iou
 import os,sys
 
 class img_sharp(object):
@@ -218,6 +218,9 @@ class Adaptive_threshold(object):
 
     @staticmethod
     def my_threshold_isodata(bin_centers, counts, bin_width , returnAll=False):
+        '''
+        https://scikit-image.org/docs/stable/api/skimage.filters.html#skimage.filters.threshold_isodata
+        '''
         counts = counts.astype('float32', copy=False)
         csuml = np.cumsum(counts)
         csumh = csuml[-1] - csuml
@@ -285,8 +288,6 @@ class save_parms(object):
         else:
             log.to_csv(logname, mode='w', index=False)
             log.drop('geometry',axis=1,inplace=False).to_csv(logname, mode='a', index=False, header=0)
-        else:
-            log.drop('geometry',axis=1,inplace=False).to_csv(logname, mode='w', index=False)
 
         if os.path.exists(shapname):
             if mode == 'gpd':
@@ -299,7 +300,6 @@ class save_parms(object):
 
     @staticmethod
     def write_pd(Union_ex, index, lake_geometry,Img,mode='gpd', Method='SNIC_Kmean', Band=[0, 1, 3], WithOrigin=0, pd_dict=None,
-                 Area_real=None, logname='log.csv', shapname='log.shp', calIoU=False,cal_resultArea=False):
                  Area_real=None, logname='log.csv', shapname='log.shp', calIoU=False,cal_resultArea=False,returnParms=False):
 
         if cal_resultArea:
