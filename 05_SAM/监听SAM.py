@@ -4,8 +4,8 @@ from samgeo import SamGeo
 import json
 import traceback
 
-input_base_folder = r'D:\Dataset_and_Demo\SETP_GL_TimeSeries'  # 监控的文件夹路径
-output_base_folder = r'D:\Dataset_and_Demo\SETP_GL_TimeSeries\Processed'  # 输出文件夹路径
+input_base_folder = r'D:\Dataset_and_Demo\SETP_GL_TS2'  # 监控的文件夹路径
+output_base_folder = r'D:\Dataset_and_Demo\SETP_GL_TS2\Processed'  # 输出文件夹路径
 exclude_folders = ['DataFused', ]  # 需要排除的子文件夹
 
 box_fromGEE = True  # 是否从 GEE 获得 box
@@ -25,8 +25,8 @@ def get_files_to_process(base_folder, exclude_folders):
         # 跳过排除的文件夹
         dirs[:] = [d for d in dirs if d not in exclude_folders]
         
-        files = [i for i in files if '_Trans' in i]  # 过滤
-        for file in files:
+        files_ = [i for i in files if '_Trans' in i]  # 过滤
+        for file in files_:
             if file.endswith('_ADMeanFused_Trans.tif') or file.endswith('_ADMeanFused_WithTiles_Trans.tif'):
                 input_path = os.path.join(root, file)
                 output_path = os.path.join(output_base_folder, os.path.relpath(input_path, base_folder))
@@ -59,7 +59,7 @@ def process_file(file_paths):
 
     except Exception as e:
         print(f'预测时发生错误: {e}')
-        with open('log.txt', 'a') as f:
+        with open('log_SAM.txt', 'a') as f:
             f.write(f'Predict error file = {input_path}\n')
             f.write(traceback.format_exc())
             f.write('\n')
