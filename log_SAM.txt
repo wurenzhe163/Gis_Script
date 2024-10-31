@@ -1,0 +1,18 @@
+Predict error file = D:\Dataset_and_Demo\SETP_GL\2022-02-25_to_2022-05-31\10006_Trans.tif
+Traceback (most recent call last):
+  File "<ipython-input-2-36d11a7b2d5d>", line 78, in process_file
+    AOI_Bound_Info = json.load(f)
+                     ^^^^^^^^^^^^
+  File "d:\Wrz\anaconda\envs\samgeo\Lib\json\__init__.py", line 293, in load
+    return loads(fp.read(),
+           ^^^^^^^^^^^^^^^^
+  File "d:\Wrz\anaconda\envs\samgeo\Lib\json\__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "d:\Wrz\anaconda\envs\samgeo\Lib\json\decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "d:\Wrz\anaconda\envs\samgeo\Lib\json\decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
