@@ -1,3 +1,4 @@
+# %%
 from PackageDeepLearn.utils import file_search_wash as fsw
 import timescale.time
 import warnings
@@ -19,7 +20,7 @@ def convert_delta_time(delta_time, gps_epoch=1198800018.0):
     return f'{Y}-{M:02d}-{D:02d}'
 # %%
 #-------------------------------------ATL03-------------------------------------
-H5Dir = r'E:\SETP_ICESat-2\ATL_03_GlobalGeolocatedPhoton\ATL03_ALL'
+H5Dir = r'G:\SETP_ICESat-2\ATL_03_GlobalGeolocatedPhoton\ATL03_Noise\test'
 H5Paths = fsw.search_files(H5Dir,endwith='.h5')
 
 # 读取数据并融合
@@ -54,7 +55,7 @@ H5_DFs[H5_DFs['signal_conf_ph_Water'] == True].to_hdf(os.path.join(H5Dir,'ATL03_
 
 # %%
 #-------------------------------------ATL06-------------------------------------
-H5Dir = r'E:\SETP_ICESat-2\ATL_06_Landice\ATL06_ALL'
+H5Dir = r'G:\SETP_ICESat-2\ATL_06_Landice\ATL06_ALL'
 H5Paths = fsw.search_files(H5Dir,endwith='.h5')
 
 H5Datas_list = [pd.read_hdf(eachPath, key='df') for eachPath in tqdm(H5Paths,total=len(H5Paths))]
@@ -70,7 +71,7 @@ H5_DFs.to_hdf(os.path.join(H5Dir,'ATL06_ALL.h5'), key='df', mode='w',index=False
 
 # %%
 #-------------------------------------ATL08-------------------------------------
-H5Dir = r'E:\SETP_ICESat-2\ATL_08_LandVegetation\ATL08_ALL'
+H5Dir = r'G:\SETP_ICESat-2\ATL_08_LandVegetation\ATL08_ALL'
 H5Paths = fsw.search_files(H5Dir,endwith='.h5')
 
 # 读取数据并融合
@@ -89,7 +90,7 @@ H5_DFs.to_hdf(os.path.join(H5Dir,'ATL08_ALL.h5'), key='df', mode='w',index=False
 
 # %%
 #-------------------------------------ATL13-------------------------------------
-H5Dir = r'E:\SETP_ICESat-2\ATL_13_InlandSurfaceWaterData\ATL13_ALL'
+H5Dir = r'G:\SETP_ICESat-2\ATL_13_InlandSurfaceWaterData\ATL13_ALL'
 H5Paths = fsw.search_files(H5Dir,endwith='.h5')
 # 读取数据并融合
 H5Datas_list = [pd.read_hdf(eachPath, key='df') for eachPath in tqdm(H5Paths,total=len(H5Paths))]
