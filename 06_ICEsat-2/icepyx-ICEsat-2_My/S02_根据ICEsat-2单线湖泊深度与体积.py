@@ -145,8 +145,23 @@ def find_stable_centroid(lake_geom, buffer_distance=30, iterations=10, tolerance
         current_geom = buffered_geom
     centroids_wgs84 = gpd.GeoSeries(centroids, crs=proj_crs).to_crs(origin_crs)
     return list(centroids_wgs84)
-
+def find_representative_point(lake_geom):
+    return [lake_geom.representative_point()]
+    
 # Step 3: 找到与中心点的延长线与多边形边界的交点与观测点距离多边形最近点
+def find_most_far_point_pair(intersection):
+    points = list(intersection.geoms)
+    if len(points) > 2:
+        # 计算所有交点之间的距离
+        max_distance = 0; i_ = 0; j_ = 0;
+        for i in range(len(points)):
+            for j in range(i+1, len(points)):
+                if points[i].distance(points[j]) > max_distance:
+                    max_distance = points[i].distance(points[j])
+                    i_ = i; j_ = j
+    elif len(points) == 2:
+        i_ = 0; j_ = 1
+    return points[i_] ,points[j_]
 def find_intersection_with_center(x_center, y_center, x_obs, y_obs, x_b, y_b, extension_factor=1000):
     intersections = []
     nears = []
@@ -161,22 +176,11 @@ def find_intersection_with_center(x_center, y_center, x_obs, y_obs, x_b, y_b, ex
         
         # 使用geom_type替代type
         if intersection.geom_type == 'MultiPoint':
-            points = list(intersection.geoms)
-            if len(points) > 2:
-                # 计算所有交点之间的距离
-                max_distance = 0; i_ = 0; j_ = 0;
-                for i in range(len(points)):
-                    for j in range(i+1, len(points)):
-                        if points[i].distance(points[j]) > max_distance:
-                            max_distance = points[i].distance(points[j])
-                            i_ = i; j_ = j
-                intersections.append((points[i_], points[j_]))
-            elif len(points) == 2:
-                intersections.append(points)
-            else:
-                intersections.append(points[0])
-        else:
-            intersections.append(intersection)
+            intersections.append((find_most_far_point_pair(intersection)))
+        #     else:
+        #         intersections.append(points[0])
+        # else:
+        #     intersections.append(intersection)
         
         # 计算最近点
         nearest_point, _ = nearest_points(boundary_line, Point(x, y))
@@ -417,9 +421,9 @@ def calculate_center_depth(x_center, y_center, z_obs,
         print("只有一个波峰或波谷")
         
     # 此时仅返回以下值，因为不与已知点相交
-    x_interp=x_interp[z_interp< z.min()]
-    y_interp=y_interp[z_interp< z.min()]
-    z_interp=z_interp[z_interp< z.min()]
+    x_interp=x_interp[mask]
+    y_interp=y_interp[mask]
+    z_interp=z_interp[mask]
     
     if plot == True:
         import matplotlib.pyplot as plt
@@ -438,6 +442,7 @@ def calculate_center_depth(x_center, y_center, z_obs,
         plt.show()
     
     return z_center,x_interp,y_interp,z_interp
+
 def calculate_others(x_center, y_center, z_center, z_obs, shrunk_points,lake_geom, lake_level):
     closest_point_index = np.argmin(z_obs)
     del intersections[closest_point_index]  
@@ -452,20 +457,20 @@ def calculate_others(x_center, y_center, z_center, z_obs, shrunk_points,lake_geo
         del boundarys[0] ; del heights[0]    
         
     x_interps = []; y_interps = []; z_interps=[]; mins = []
-    for intersection_line in intersection_lines:
+    for point_index,intersection_line in enumerate(intersection_lines):
         intersection_points = intersection_line.intersection(boundarys)
         if len(boundarys)<=2:
-            intersection_points[0] = MultiPoint(intersections[closest_point_index])
+            intersection_points[0] = MultiPoint(intersections[point_index])
         x = np.zeros(len(intersection_points) * 2) ; y = np.zeros(len(intersection_points) * 2)
         for j,multipoint in enumerate(intersection_points):
-            for i,point in enumerate(multipoint.geoms):
+            point_pairs = find_most_far_point_pair(multipoint)
+            for i,point in enumerate(point_pairs):
                 if i == 0:
                     x[j] = point.x; y[j] = point.y
                 elif i == 1:
                     x[-(j+1)] = point.x; y[-(j+1)] = point.y
 
-        z = np.array(heights + heights[::-1])
-        bound_z_min = z.min()        
+        z = np.array(heights + heights[::-1])    
                 
         mid_index = len(y) // 2
         new_x = np.zeros(len(x) + 2)
@@ -496,7 +501,9 @@ def calculate_others(x_center, y_center, z_center, z_obs, shrunk_points,lake_geo
         z_interp = z_interp[sorted_indices]
         
         # 判断波峰和波谷
-        peaks, valleys = peak_valley_count(y_interp,z_interp,z)
+        min_y_values = y[np.argsort(z)[:2]]
+        mask = (y_interp >= min(min_y_values)) & (y_interp <= max(min_y_values))
+        peaks, valleys = peak_valley_count(y_interp,z_interp,mask)
 
         # 检查是否有多个波峰或波谷
         if len(peaks) + len(valleys) > 1:
@@ -504,11 +511,13 @@ def calculate_others(x_center, y_center, z_center, z_obs, shrunk_points,lake_geo
             indice = [0,len(new_y)//2-2, len(new_y)//2-1,len(new_y)//2,len(new_y)//2+1, len(new_y)-1]
             f = interp1d(new_y[indice], new_z[indice], kind='quadratic', fill_value='extrapolate')
             z_interp = f(y_interp)
+        else:
+            print('单个波峰波谷')
             
         # 此时仅返回以下值，因为不与已知点相交
-        x_interp=x_interp[z_interp< bound_z_min]
-        y_interp=y_interp[z_interp< bound_z_min]
-        z_interp=z_interp[z_interp< bound_z_min]
+        x_interp=x_interp[mask]
+        y_interp=y_interp[mask]
+        z_interp=z_interp[mask]
         
         if len(z_interp) == 0:
             tolerate = False
@@ -528,12 +537,11 @@ def calculate_others(x_center, y_center, z_center, z_obs, shrunk_points,lake_geo
                 tolerate = False
             else:
                 tolerate = np.abs((z_center - np.min(z_interp)))<=np.abs(lake_level-z_center) * 0.01
-            if len(z_interp)>25 and tolerate:
+            if len(z_interp)>15 and tolerate:
                 x_interps.append(x_interp)
                 y_interps.append(y_interp)
                 z_interps.append(z_interp)
-            
-            
+                
     return ([item for sublist in x_interps for item in sublist],
             [item for sublist in y_interps for item in sublist],
             [item for sublist in z_interps for item in sublist])
@@ -804,8 +812,12 @@ JSONPATHS = fsw.search_files(r'G:\SETP_ICESat-2\lake_volumn_by_ICEsat-2',endwith
 glacial_lakes = gpd.read_file(r"D:\BaiduSyncdisk\02_论文相关\在写\SAM冰湖\数据\2023_05_31_to_2023_09_15_样本修正_SpatialJoin.shp")
 
 for ex_num,JsonPath in enumerate(JSONPATHS):
+
     if ex_num < 0:
         continue
+
+    # JsonPath = JSONPATHS[172]
+
     # -----------------------------载入观测点与湖泊范围
     x_obs, y_obs, z_obs, lake_level,lake_geom,lake_sort = read_split_poly(JsonPath,glacial_lakes,target_points=50)
 
@@ -906,10 +918,86 @@ for ex_num,JsonPath in enumerate(JSONPATHS):
             combined_data = pd.concat([existing_data, lake_info], ignore_index=True)
             combined_data.to_csv(excel_filename, index=False, header=True, mode='w')
                 
-        pio.write_html(fig, file= f"lake_{lake_sort}_plot.html", auto_open=False)
-        # pio.write_image(fig, f"lake_{lake_sort}_plot.png", scale=1, width=300, height=200, format='png')
-        
+        pio.write_html(fig, file= f"lake_{lake_sort}_{ex_num}_plot.html", auto_open=False)
+        # pio.write_image(fig, f"lake_{lake_sort}_{ex_num}_plot.png", scale=1, width=300, height=200, format='png')
     else:
+        stable_centroids = find_representative_point(lake_geom)
+        x_center, y_center = stable_centroids[0].x, stable_centroids[0].y
+        intersections,nears = find_intersection_with_center(x_center, y_center, x_obs, y_obs, x_b, y_b)
+        intersect_points = [np.array([point.x, point.y]) for intersection in intersections for point in intersection]
+
+        # 确保intersect_points的长度是偶数
+        assert len(intersect_points) % 2 == 0
+
+        points_on_section = gpd.GeoDataFrame(geometry=[Point(xy) for xy in zip(x_obs, y_obs)], crs="EPSG:4326").to_crs(epsg=8859)
+        df = pd.DataFrame({
+            'x_obs': x_obs,
+            'y_obs': y_obs,
+            'z_obs': z_obs,
+            'obs_geo': points_on_section.geometry
+        })
+        df['intersect_points_0'] = intersect_points[::2]
+        df['intersect_points_1'] = intersect_points[1::2]
+        df['intersect_points_near'] = nears
+        df = df.sort_values(by=['z_obs'], ascending=[False])
+        calculate_distances_to_intersections(df, x_center, y_center,  projection_crs="EPSG:8859")
+        height_shrink = calculate_shrink_boundary(df,all_boundary_points)
+        shrunk_points = calculate_shrunk_boundary_points(all_boundary_points, height_shrink, x_center, y_center)
+        
+        shrunk_points = remove_excessive_or_intersecting_boundaries(shrunk_points,lake_geom)
+        if len(shrunk_points) == 0:
+            print("No shrunk points found.")
+            continue
+        
+        z_center,x_interp,y_interp,z_interp= calculate_center_depth(x_center, y_center, z_obs,
+                                                                    shrunk_points, lake_geom, lake_level,plot=False)
+        x_interps,y_interps,z_interps = calculate_others(x_center, y_center, z_center, z_obs, shrunk_points,lake_geom, lake_level)
+
+        x_interp = np.concatenate((x_interp, x_interps))
+        y_interp = np.concatenate((y_interp, y_interps))
+        z_interp = np.concatenate((z_interp, z_interps))
+        
+        xi,yi,zi = RBF_interpolation(shrunk_points,x_b,y_b,z_b,x_interp,y_interp,z_interp,x_center,y_center,z_center)
+        lake_volume, lake_maxdeep, lake_meandeep,lake_width,lake_length = calculate_lake_volume(xi, yi, zi,lake_geom,lake_level,
+                                                                        crs="EPSG:4326",projection_crs="EPSG:8859")
+        
+        
+        fig = plot_lake_surface(xi, yi, zi, lake_level, x_center, y_center,z_center,x_interp,y_interp,z_interp,
+                    x_b=x_b, y_b=y_b, z_b=z_b, 
+                    x_obs=x_obs, y_obs=y_obs, z_obs=z_obs,
+                    shrunk_points=shrunk_points, df=df,
+                    add_boundary_points=True, add_spline_interp = True,
+                    add_center_point=True, 
+                    add_center_with_depth=True,add_observation_points=True, 
+                    add_boundary_lines=True, add_intersection_lines=True,show=False)
+
+        
+        excel_filename = f"lake_data.csv"
+        os.chdir(r'G:\SETP_ICESat-2\lake_volumn_by_ICEsat-2\裂化')
+        # 记录湖泊数据
+        lake_info = pd.DataFrame({
+            'lake_sort': [lake_sort],
+            'lake_level': [lake_level],
+            'stable_centroids': [str(stable_centroids[0].coords[0])],  # 将Point对象转换为字符串
+            'lake_volume': [lake_volume],
+            'lake_maxdeep': [lake_maxdeep],
+            'lake_meandeep': [lake_meandeep],
+            'lake_width': [lake_width],
+            'lake_length': [lake_length]
+        })
+        
+        # 检查文件是否存在
+        if not os.path.isfile(excel_filename):
+            lake_info.to_csv(excel_filename, index=False, header=True, mode='w')
+        else:
+            # 如果文件存在，读取现有数据并追加新数据
+            existing_data = pd.read_csv(excel_filename)
+            combined_data = pd.concat([existing_data, lake_info], ignore_index=True)
+            combined_data.to_csv(excel_filename, index=False, header=True, mode='w')
+                
+        pio.write_html(fig, file= f"lake_{lake_sort}_{ex_num}_plot.html", auto_open=False)
+        # pio.write_image(fig, f"lake_{lake_sort}_{ex_num}_plot.png", scale=1, width=300, height=200, format='png')
+        
         print('存在裂化') 
 
 
