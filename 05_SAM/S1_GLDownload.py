@@ -30,7 +30,7 @@ BoundBuffer_Add = 300 # 边界缓冲区加值
 model = 'volume'  # Slop correction model
 DEM = ee.Image("NASA/NASADEM_HGT/001").select('elevation')
 # SaveDir = r'D:\Dataset_and_Demo\SETP_GL_TimeSeries'
-SaveDir = r'D:\Dataset_and_Demo\SETP_GL_TS2'
+SaveDir = r'D:\Dataset_and_Demo\SETP_GL'
 
 years = ['2015','2016','2017','2018','2019','2020','2021','2022','2023','2024']
 SETP_Season = ['-02-25', '-05-31', '-09-15', '-11-28', '-02-25']
@@ -154,6 +154,7 @@ def download_data(i, START_DATE, END_DATE, output_folder):
 
         s1_col = s1_col.map(partial(DataTrans.rm_nodata, AOI=AOI))
         s1_col = s1_col.map(partial(DataTrans.cal_minmax, AOI=AOI))
+        s1_col = s1_col.map(lambda x: x.updateMask(x.gte(-30)))       # 部分影像边缘存在黑边误差
         proj = s1_col.first().select(0).projection()
         
         s1_a_col = s1_col.filter(ee.Filter.eq('orbitProperties_pass', 'ASCENDING'))
