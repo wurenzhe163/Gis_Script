@@ -19,11 +19,12 @@ import traceback
 from matplotlib.patches import Polygon as MplPolygon
 
 # 读取数据
-os.chdir(r'G:\SETP_ICESat-2')
-SETP_SHP = r"G:\SETP_Boundary.geojson"
+os.chdir(r'E:\SETP_ICESat-2')
+SETP_SHP = r"E:\SETP_Boundary.geojson"
 
 ATL03_Water = pd.read_hdf(r"ATL_03_GlobalGeolocatedPhoton\ATL03_ALL\ATL03_Water.h5", key='df')
 ATL03_ALL = pd.read_hdf(r"ATL_03_GlobalGeolocatedPhoton\ATL03_ALL\ATL03_ALL.h5", key='df')
+
 ATL06_ALL = pd.read_hdf(r"ATL_06_Landice\ATL06_ALL\ATL06_ALL.h5", key='df')
 ATL08_ALL = pd.read_hdf(r"ATL_08_LandVegetation\ATL08_ALL\ATL08_ALL.h5", key='df')
 ATL13_ALL = pd.read_hdf(r"ATL_13_InlandSurfaceWaterData\ATL13_ALL\ATL13_ALL.h5", key='df')
@@ -108,36 +109,45 @@ def merge_polygons(geom, expand_distance=0.0001, erode_distance=0.0001):
     eroded = erode(dilated, erode_distance)
     return unary_union(eroded)
 
-def plot_and_get_line(SAR_image_transformed, transform, selected_geometries,selected_area,
+from matplotlib.gridspec import GridSpec
+def plot_and_get_line(SAR_image_transformed, transform, selected_geometries, selected_area,
                       Selected_ATL03, Selected_ATL03_Noise, Selected_ATL06, Selected_ATL08, Selected_ATL13, 
-                      Sort_num, date, subgroup, n):
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+                      Sort_num, date, subgroup, n, save_svg=False):
+    # Set the font to Times New Roman
+    plt.rcParams['font.family'] = 'Times New Roman'
 
+    # Use GridSpec to define the layout
+    fig = plt.figure(figsize=(14, 6))
+    gs = GridSpec(1, 2, figure=fig, width_ratios=[1, 1])
+    ax1 = fig.add_subplot(gs[0])
+    ax2 = fig.add_subplot(gs[1])
+# 获取右侧子图的当前位置和大小
+    pos = ax2.get_position()
+    new_height = pos.height * 0.85  # 缩小到原来的80%
+    ax2.set_position([pos.x0, pos.y0*1.7, pos.width, new_height])
     if SAR_image_transformed is not None:
-        # 显示SAR影像
+        # Display SAR image
         show(SAR_image_transformed, ax=ax1, transform=transform, cmap='gray')
-        ax1.set_title('SAR Image with Coordinates')
-        ax1.set_xlabel('Longitude')
-        ax1.set_ylabel('Latitude')
+        ax1.set_title('SAR Image with Coordinates', fontsize=12)
+        ax1.set_xlabel('Longitude', fontsize=12)
+        ax1.set_ylabel('Latitude', fontsize=12)
 
-        # 绘制 ATL03 线
+        # Plot ATL03 line
         y_min, y_max = Selected_ATL03['lat'].min(), Selected_ATL03['lat'].max()
         x_min, x_max = (
             Selected_ATL03.loc[Selected_ATL03['lat'].idxmin(), 'lon'],
             Selected_ATL03.loc[Selected_ATL03['lat'].idxmax(), 'lon'],
         )
         ax1.plot([x_min, x_max], [y_min, y_max], color='red', linestyle='--', linewidth=2, label='ATL03 Line')
+        
+        # Handling MultiPolygon if necessary
         if isinstance(selected_geometries, MultiPolygon):
-            merged_poly = merge_polygons(selected_geometries, 
-                                         expand_distance=0.0003, 
-                                         erode_distance=0.0003)
-            
+            merged_poly = merge_polygons(selected_geometries, expand_distance=0.0003, erode_distance=0.0003)
             if isinstance(merged_poly, MultiPolygon):
                 merged_poly = max(merged_poly.geoms, key=lambda x: x.area)
             selected_geometries = merged_poly
-            
-        if selected_geometries.is_valid:  # 确保 Polygon 是有效的
-            # 转换为 Matplotlib 的 Polygon
+
+        if selected_geometries.is_valid:
             mpl_polygon = MplPolygon(
                 list(selected_geometries.exterior.coords),
                 closed=True,
@@ -145,27 +155,34 @@ def plot_and_get_line(SAR_image_transformed, transform, selected_geometries,sele
                 facecolor='none'
             )
             ax1.add_patch(mpl_polygon)
-            
-        # 标注面积值
+
+        # Annotate area value
         ax1.text(
-            0.02, 0.98,  # 相对轴坐标 (x, y)，左上角为 (0, 1)
-            f"Selected Area: {selected_area:.5f} sq. km",  # 面积标注文本
-            transform=ax1.transAxes,  # 使用轴坐标
+            0.02, 0.98,
+            f"Selected Area: {selected_area:.5f} sq. km",
+            transform=ax1.transAxes,
             fontsize=10,
             color='black',
             verticalalignment='top',
-            bbox=dict(facecolor='white', alpha=0.5, edgecolor='none')  # 可选：添加背景框
+            bbox=dict(facecolor='white', alpha=0.5, edgecolor='none')
         )
-        ax1.legend(loc='upper right')
+        ax1.legend(loc='upper right', prop={'size': 10})
 
+    # Prepare data for plotting in the second subplot
     dataDF_list = [Selected_ATL03, Selected_ATL03_Noise, Selected_ATL06, Selected_ATL08, Selected_ATL13]
     datatype = ['ATL_03', 'ATL_03Noise', 'ATL_06', 'ATL_08', 'ATL_13']
     s = dataCollector(dataDF_list=dataDF_list, datatype=datatype)
     s.plotData(ax=ax2, title='ICESat-2 Data')
 
-    # 将 lat 和 xatc 定义为局部变量，以确保在函数中不被外部改变
+    # Local variables for latitude and along-track distance
     lat = [y_min, y_max]
-    xatc = [0, np.sqrt((y_max - y_min)**2 + (x_max - x_min)**2) / 1000]  # distance in km
+    transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857")
+    # Transform coordinates
+    x_min_3857, y_min_3857 = transformer.transform(y_min, x_min)
+    x_max_3857, y_max_3857 = transformer.transform(y_max, x_max)
+
+    # Calculate the distance in meters and convert to km
+    xatc = [0, np.sqrt((x_max_3857 - x_min_3857)**2 + (y_max_3857 - y_min_3857)**2) / 1000]
 
     def lat2xatc(l):
         return xatc[0] + (l - lat[0]) * (xatc[1] - xatc[0]) / (lat[1] - lat[0])
@@ -175,18 +192,17 @@ def plot_and_get_line(SAR_image_transformed, transform, selected_geometries,sele
 
     secax = ax2.secondary_xaxis(-0.075, functions=(lat2xatc, xatc2lat))
     secax.xaxis.set_minor_locator(mticker.AutoMinorLocator())
-    secax.set_xlabel('Latitude / Along-Track Distance (km)', fontsize=8, labelpad=0)
-    secax.tick_params(axis='both', which='major', labelsize=7)
+    secax.set_xlabel('Latitude / Along-Track Distance (km)', fontsize=12, labelpad=0)
+    secax.tick_params(axis='both', which='major', labelsize=10)
     secax.ticklabel_format(useOffset=False, style='plain')
     
-    # 绘制湖面线
-    print("请在图上点击以绘制湖面线（按回车键结束）")
+    # Plotting lake level line
+    print("Please click on the plot to draw the lake level line (press Enter to finish)")
     lake_points = plt.ginput(n=-1, timeout=0)
 
     if lake_points:
         lake_points = sorted(lake_points, key=lambda x: x[0])
         lake_points_with_lon = []
-        
         for lat_, height in lake_points:
             closest_lat_index = np.abs(s.atl03['lat'] - lat_).idxmin()
             closest_lon = s.atl03.at[closest_lat_index, 'lon']
@@ -194,14 +210,13 @@ def plot_and_get_line(SAR_image_transformed, transform, selected_geometries,sele
 
         lake_geometry = LineString(lake_points_with_lon)
         
-    # 绘制其他特征线
-    print("请在图上点击以绘制其他特征线（按回车键结束）")
+    # Plotting other feature lines
+    print("Please click on the plot to draw other feature lines (press Enter to finish)")
     other_points = plt.ginput(n=-1, timeout=0)
 
     if other_points:
         other_points = sorted(other_points, key=lambda x: x[0])
         other_points_with_lon = []
-        
         for lat_, height in other_points:
             closest_lat_index = np.abs(s.atl03['lat'] - lat_).idxmin()
             closest_lon = s.atl03.at[closest_lat_index, 'lon']
@@ -209,47 +224,52 @@ def plot_and_get_line(SAR_image_transformed, transform, selected_geometries,sele
 
         other_geometry = LineString(other_points_with_lon)
 
-    # 创建一个包含两条线的 MultiLineString
+    # Create MultiLineString
     if lake_points or other_points:
         geometries = []
         properties = []
-        
         if lake_points:
             geometries.append(lake_geometry)
             properties.append({'type': 'lake level'})
-        
         if other_points:
             geometries.append(other_geometry)
             properties.append({'type': 'lake deep'})
         
-        # 直接将 geometries 和 properties 列表传给 GeoDataFrame
         combined_gdf = gpd.GeoDataFrame(geometry=geometries, data=properties, crs="EPSG:4326")  
         combined_output_path = f'lake_volumn_by_ICEsat-2/{Sort_num}_{date}_{subgroup[0:4]}_{n}_lines.geojson'
         combined_gdf.to_file(combined_output_path, driver='GeoJSON')
-        print(f"湖面线和其他特征线已保存为 {combined_output_path}")
+        print(f"Lake level line and other feature lines saved as {combined_output_path}")
     else:
-        print("没有绘制任何线, GeoJSON文件未保存")
+        print("No lines drawn, GeoJSON file not saved")
 
-    plt.close()
+    if save_svg:
+        svg_output_path = f'lake_volumn_by_ICEsat-2/{Sort_num}_{date}_{subgroup[0:4]}_{n}_plot.svg'
+        plt.savefig(svg_output_path, format='svg', dpi=1200, bbox_inches='tight')
+        print(f"Figure saved as SVG: {svg_output_path}")
+
+    plt.close(fig)
 
 from PackageDeepLearn.utils import file_search_wash as fsw
 
-Images_cal = fsw.search_files(r'G:\SETP_ICESat-2\lake_volumn_by_ICEsat-2\image_for_cal_deep',endwith='.jpg')
+Images_cal = fsw.search_files(r'E:\SETP_ICESat-2\lake_volumn_by_ICEsat-2\image_for_cal_deep',endwith='.jpg')
 Images_baseName = [os.path.basename(i) for i in Images_cal]
+
 # 主循环
-# for each in Images_cal:
+for each in Images_cal:
     Images_baseName = os.path.basename(each).split('_')
     Sort_num = float(Images_baseName[0])
     date     = Images_baseName[1]
     subgroup = Images_baseName[2] + '/'
     n = Images_baseName[3].split('.')[0]
-    if os.path.exists(f'G:\SETP_ICESat-2\lake_volumn_by_ICEsat-2\{Sort_num}_{date}_{subgroup[0:4]}_{n}_lines.geojson'):
+    if os.path.exists(f'E:\SETP_ICESat-2\lake_volumn_by_ICEsat-2\{Sort_num}_{date}_{subgroup[0:4]}_{n}_lines.geojson'):
         continue
 
-        
+    
     # Sort_num = 162.0; date='2023-03-09'; subgroup = 'gt1l/',n=0
     # Sort_num = 24.0; date='2023-05-29'; subgroup = 'gt3r/',n=0
-    Sort_num = 6593.0; date='2023-10-13'; subgroup = 'gt1l/'; n=815 
+    # Sort_num = 6593.0; date='2023-10-13'; subgroup = 'gt1l/'; n=815 
+    # Sort_num = 7412; date = '2023-09-02'; subgroup = 'gt3r/'; n=558
+    Sort_num = 318; date = '2023-02-03'; subgroup = 'gt2r/'; n=1347
     ID = int(Sorted_ID[Sorted_ID.Sort == Sort_num].ID)
     SAR_image_path = os.path.join(SAR_imageDir, f'{ID:05d}_Trans.tif')
     selected_geometries = Sorted_ID[Sorted_ID['Sort'] == Sort_num].geometry.iloc[0]
@@ -315,5 +335,5 @@ Images_baseName = [os.path.basename(i) for i in Images_cal]
     plot_and_get_line(SAR_image_transformed, transform, selected_geometries,selected_area,
                         Selected_ATL03, Selected_ATL03_Noise, 
                         Selected_ATL06,Selected_ATL08, Selected_ATL13, 
-                        Sort_num, date, subgroup, n)
+                        Sort_num, date, subgroup, n,save_svg=True)
            
