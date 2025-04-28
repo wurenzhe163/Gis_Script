@@ -69,4 +69,4 @@ date_range = {"start_date": START_DATE, "end_date": END_DATE}
 
 region_a = ipx.Query(short_name, spatial_extent, date_range, version='006')
 
-region_a.avail_granules(ids=True, cycles=False, tracks=False,cloud=False)
+region_a.avail_granules(ids=True, cycles=False, tracks=False,cloud=False)3
