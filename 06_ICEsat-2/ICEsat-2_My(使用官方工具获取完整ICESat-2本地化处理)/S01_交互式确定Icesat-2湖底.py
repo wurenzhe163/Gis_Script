@@ -74,6 +74,7 @@ class dataCollector:
             if hasattr(self, 'atl03') and not self.atl03.empty:
                 self.atl03['signal_conf_hue'] = self.atl03['signal_conf_combined'].apply(lambda x: max(x) if isinstance(x, list) else None)
                 sns.scatterplot(data=self.atl03, x='lat', y='h', hue='signal_conf_hue', palette=custom_palette, alpha=0.5, legend=True, s=10, ax=ax)
+                
             if hasattr(self, 'atl03noise') and not self.atl03noise.empty:
                 ax.scatter(self.atl03noise.lat, self.atl03noise.h, s=8, color='black', alpha=0.2, label='atl03noise')
                 
@@ -110,6 +111,7 @@ def merge_polygons(geom, expand_distance=0.0001, erode_distance=0.0001):
     return unary_union(eroded)
 
 from matplotlib.gridspec import GridSpec
+
 def plot_and_get_line(SAR_image_transformed, transform, selected_geometries, selected_area,
                       Selected_ATL03, Selected_ATL03_Noise, Selected_ATL06, Selected_ATL08, Selected_ATL13, 
                       Sort_num, date, subgroup, n, save_svg=False):
@@ -121,7 +123,7 @@ def plot_and_get_line(SAR_image_transformed, transform, selected_geometries, sel
     gs = GridSpec(1, 2, figure=fig, width_ratios=[1, 1])
     ax1 = fig.add_subplot(gs[0])
     ax2 = fig.add_subplot(gs[1])
-# 获取右侧子图的当前位置和大小
+    # 获取右侧子图的当前位置和大小
     pos = ax2.get_position()
     new_height = pos.height * 0.85  # 缩小到原来的80%
     ax2.set_position([pos.x0, pos.y0*1.7, pos.width, new_height])
@@ -251,7 +253,7 @@ def plot_and_get_line(SAR_image_transformed, transform, selected_geometries, sel
 
 from PackageDeepLearn.utils import file_search_wash as fsw
 
-Images_cal = fsw.search_files(r'E:\SETP_ICESat-2\lake_volumn_by_ICEsat-2\image_for_cal_deep',endwith='.jpg')
+Images_cal = fsw.search_files(r'G:\SETP_ICESat-2\lake_volumn_by_ICEsat-2\image_for_cal_deep',endwith='.jpg')
 Images_baseName = [os.path.basename(i) for i in Images_cal]
 
 # 主循环
@@ -261,7 +263,7 @@ for each in Images_cal:
     date     = Images_baseName[1]
     subgroup = Images_baseName[2] + '/'
     n = Images_baseName[3].split('.')[0]
-    if os.path.exists(f'E:\SETP_ICESat-2\lake_volumn_by_ICEsat-2\{Sort_num}_{date}_{subgroup[0:4]}_{n}_lines.geojson'):
+    if os.path.exists(f'G:\SETP_ICESat-2\lake_volumn_by_ICEsat-2\{Sort_num}_{date}_{subgroup[0:4]}_{n}_lines.geojson'):
         continue
 
     
@@ -269,7 +271,7 @@ for each in Images_cal:
     # Sort_num = 24.0; date='2023-05-29'; subgroup = 'gt3r/',n=0
     # Sort_num = 6593.0; date='2023-10-13'; subgroup = 'gt1l/'; n=815 
     # Sort_num = 7412; date = '2023-09-02'; subgroup = 'gt3r/'; n=558
-    Sort_num = 318; date = '2023-02-03'; subgroup = 'gt2r/'; n=1347
+    # Sort_num = 318; date = '2023-02-03'; subgroup = 'gt2r/'; n=1347
     ID = int(Sorted_ID[Sorted_ID.Sort == Sort_num].ID)
     SAR_image_path = os.path.join(SAR_imageDir, f'{ID:05d}_Trans.tif')
     selected_geometries = Sorted_ID[Sorted_ID['Sort'] == Sort_num].geometry.iloc[0]
