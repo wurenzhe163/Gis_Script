@@ -1,16 +1,17 @@
 from functools import partial
 import ee,os,sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from GEE_CorreterAndFilters import ImageFilter
-from GEE_DataIOTrans import DataTrans
-from GEE_DataIOTrans import DataTrans
-from GEE_DataIOTrans import BandTrans
-from GEEMath import angle2slope,time_difference
+import numpy as np
+import math
 from tqdm import tqdm
 from scipy.signal import argrelextrema
-from GEE_CorreterAndFilters import S1Corrector
-import sys
-import numpy as np
+
+# Add the parent directory to the path for imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Import from the same directory
+from GEE_CorreterAndFilters import ImageFilter, S1Corrector
+from GEE_DataIOTrans import DataTrans, BandTrans
+from GEEMath import angle2slope, time_difference
 
 # ---------------------------------S1几何畸变检测、冰湖提取专用
 def load_S1collection(aoi, start_date, end_date, middle_date, Filter=None, FilterSize=30):
@@ -568,8 +569,13 @@ class S1_CalDistor(object):
                         tlon_Llay = L_lon[index_Llay]
                         tlat_Llay = L_lat[index_Llay]
                         if Peak_Llay:
-                            tlon_Llay = np.append(tlon_Llay, rlon)
-                            tlat_Llay = np.append(tlat_Llay, rlat)
+                            # 使用列表收集数据，然后一次性转换为numpy数组，避免重复的np.append
+                            tlon_Llay_list = list(tlon_Llay)
+                            tlat_Llay_list = list(tlat_Llay)
+                            tlon_Llay_list.append(rlon)
+                            tlat_Llay_list.append(rlat)
+                            tlon_Llay = np.array(tlon_Llay_list)
+                            tlat_Llay = np.array(tlat_Llay_list)
 
                         for i, j in zip(tlon_Llay, tlat_Llay):
                             if [i, j] not in LPassive_layover:
@@ -594,8 +600,13 @@ class S1_CalDistor(object):
                         tlon_Shadow = R_lon[index_Shadow]
                         tlat_Shadow = R_lat[index_Shadow]
                         if Peak_shdow:
-                            tlon_Shadow = np.append(tlon_Shadow, rlon)
-                            tlat_Shadow = np.append(tlat_Shadow, rlat)
+                            # 使用列表收集数据，然后一次性转换为numpy数组，避免重复的np.append
+                            tlon_Shadow_list = list(tlon_Shadow)
+                            tlat_Shadow_list = list(tlat_Shadow)
+                            tlon_Shadow_list.append(rlon)
+                            tlat_Shadow_list.append(rlat)
+                            tlon_Shadow = np.array(tlon_Shadow_list)
+                            tlat_Shadow = np.array(tlat_Shadow_list)
 
                         for i, j in zip(tlon_Shadow, tlat_Shadow):
                             if [i, j] not in Passive_shadow:

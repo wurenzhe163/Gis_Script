@@ -26,11 +26,11 @@ def create_dataframe(path,init=False):
 
     # 添加一列 正例和负例分别用1和0, ASCENDING_SAR用2表示 ,DESCENDING_SAR用3表示
     if init:
-        tiffdf['pos_neg'] = [1 if 'Reprj_fillnodata_cloud' in each or 'Clear' in each else 0 for each in tiffdf.tif.values]
+        tiffdf['pos_neg'] = [1 if 'Reprj_fillnodata_cloud' in each or 'Clear' in each else 0 for each in tiffdf.tif.to_numpy()]
     tiffdf['pos_neg'] = [1 if 'Reprj_fillnodata_cloud' in each or 'Clear' in each else 2
                          if 'ASCENDING' in each else 3
                          if 'DESCENDING' in each else 0
-                         for each in tiffdf.tif.values]
+                         for each in tiffdf.tif.to_numpy()]
     return tiffdf
 
 def caculate_date(tiffdf,csv_path=None):
@@ -40,7 +40,7 @@ def caculate_date(tiffdf,csv_path=None):
     # 添加一列，成像日期
     tiffdf = tiffdf.reindex(columns = tiffdf.columns.tolist()+["date"])
     # 计算成像日期，其中cloud需要由同组其它数据计算
-    for i,each in enumerate(tiffdf['pos_neg'].values):
+    for i,each in enumerate(tiffdf['pos_neg'].to_numpy()):
 
         if each == 1:
             if 'Clear' in tiffdf.tif[i]:

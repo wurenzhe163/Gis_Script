@@ -27,7 +27,7 @@ H5Paths = fsw.search_files(H5Dir,endwith='.h5')
 H5Datas_list = [pd.read_hdf(eachPath, key='df') for eachPath in tqdm(H5Paths,total=len(H5Paths))]
 
 # 添加文件名列
-H5_DFs = pd.concat(H5Datas_list, axis=0)
+H5_DFs = pd.concat(H5Datas_list, axis=0, ignore_index=True)
 
 # 将多个信号置信度合并为一个列表
 H5_DFs['signal_conf_combined'] = H5_DFs.apply(lambda row: [ row['signal_conf_ph_1'],
@@ -59,7 +59,7 @@ H5Dir = r'G:\SETP_ICESat-2\ATL_06_Landice\ATL06_ALL'
 H5Paths = fsw.search_files(H5Dir,endwith='.h5')
 
 H5Datas_list = [pd.read_hdf(eachPath, key='df') for eachPath in tqdm(H5Paths,total=len(H5Paths))]
-H5_DFs = pd.concat(H5Datas_list, axis=0)
+H5_DFs = pd.concat(H5Datas_list, axis=0, ignore_index=True)
 
 # 时间转为年月日
 unique_times = H5_DFs['time'].unique()
@@ -78,7 +78,7 @@ H5Paths = fsw.search_files(H5Dir,endwith='.h5')
 H5Datas_list = [pd.read_hdf(eachPath, key='df') for eachPath in tqdm(H5Paths,total=len(H5Paths))]
 
 # 添加文件名列
-H5_DFs = pd.concat(H5Datas_list, axis=0)
+H5_DFs = pd.concat(H5Datas_list, axis=0, ignore_index=True)
 
 # 时间转为年月日
 unique_times = H5_DFs['time'].unique()
@@ -95,7 +95,7 @@ H5Paths = fsw.search_files(H5Dir,endwith='.h5')
 # 读取数据并融合
 H5Datas_list = [pd.read_hdf(eachPath, key='df') for eachPath in tqdm(H5Paths,total=len(H5Paths))]
 # 添加文件名列
-H5_DFs = pd.concat(H5Datas_list, axis=0)
+H5_DFs = pd.concat(H5Datas_list, axis=0, ignore_index=True)
 
 # 时间转为年月日
 unique_times = H5_DFs['time'].unique()
