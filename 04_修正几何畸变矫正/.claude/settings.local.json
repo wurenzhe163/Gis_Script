@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(conda activate:*)",
+      "Bash(python:*)",
+      "Bash(call:*)"
+    ]
+  }
+}
